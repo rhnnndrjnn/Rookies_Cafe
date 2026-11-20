@@ -8,7 +8,7 @@ import {
   fmtDateTime,
   fmtDay,
   pesoWhole,
-  PACKAGES,
+  resolveEvents,
   ymd,
 } from "../../lib/constants.js"
 import { blockDate, deleteBooking, setBookingStatus, updateBooking } from "../../lib/db.js"
@@ -30,7 +30,7 @@ function Detail({ label, children }) {
 const EDIT_STATUSES = ["pending", "confirmed", "declined", "cancelled"]
 
 /** Owner: edit everything about a booking. */
-function EditBookingForm({ booking, onClose }) {
+function EditBookingForm({ booking, onClose, packages }) {
   const notify = useNotify()
   const [f, setF] = useState({
     customer_name: booking.customer_name || "",
@@ -106,8 +106,8 @@ function EditBookingForm({ booking, onClose }) {
         <Field label="Package">
           <select className="input-box mt-2" value={f.package} onChange={(e) => set("package", e.target.value)}>
             <option value="">— none —</option>
-            {PACKAGES.map((p) => <option key={p.name} value={p.name}>{p.name} · {p.guests} guests · {pesoWhole(p.price)}</option>)}
-            {f.package && !PACKAGES.some((p) => p.name === f.package) && <option value={f.package}>{f.package}</option>}
+            {packages.map((p) => <option key={p.name} value={p.name}>{p.name} · {p.guests} guests · {pesoWhole(p.price)}</option>)}
+            {f.package && !packages.some((p) => p.name === f.package) && <option value={f.package}>{f.package}</option>}
           </select>
         </Field>
         <Field label="Guests"><input className="input-box mt-2" inputMode="numeric" value={f.guests} onChange={(e) => set("guests", e.target.value.replace(/\D/g, "").slice(0, 4))} /></Field>
@@ -128,8 +128,8 @@ function EditBookingForm({ booking, onClose }) {
   )
 }
 
-function BookingCard({ b, busy, onAct, onUnblock, onEdit, onDelete }) {
-  const price = PACKAGES.find((p) => p.name === b.package)
+function BookingCard({ b, busy, onAct, onUnblock, onEdit, onDelete, packages }) {
+  const price = packages.find((p) => p.name === b.package)
   if (b.status === "blocked")
     return (
       <article className="rounded-2xl border border-earth-300 bg-earth-50 p-5 shadow-sm">
@@ -219,7 +219,8 @@ function BookingCard({ b, busy, onAct, onUnblock, onEdit, onDelete }) {
   )
 }
 
-export default function EventsPanel({ bookings }) {
+export default function EventsPanel({ bookings, settings }) {
+  const packages = resolveEvents(settings?.events).packages
   const notify = useNotify()
   const today = ymd(new Date())
   const [selected, setSelected] = useState(today)
@@ -349,7 +350,7 @@ export default function EventsPanel({ bookings }) {
             <p className="rounded-2xl border border-earth-300 bg-earth-50 px-5 py-14 text-center text-sm text-earth-600">No pending requests right now.</p>
           )}
           {pending.map((b) => (
-            <BookingCard key={b.id} b={b} busy={busyId === b.id} onAct={act} onUnblock={unblock} onEdit={setEditing} onDelete={remove} />
+            <BookingCard key={b.id} b={b} busy={busyId === b.id} onAct={act} onUnblock={unblock} onEdit={setEditing} onDelete={remove} packages={packages} />
           ))}
         </div>
       )}
@@ -371,7 +372,7 @@ export default function EventsPanel({ bookings }) {
             {allRows.map((b) => (
               <div key={b.id}>
                 <p className="eyebrow mb-1.5">{fmtDay(b.event_date)}</p>
-                <BookingCard b={b} busy={busyId === b.id} onAct={act} onUnblock={unblock} onEdit={setEditing} onDelete={remove} />
+                <BookingCard b={b} busy={busyId === b.id} onAct={act} onUnblock={unblock} onEdit={setEditing} onDelete={remove} packages={packages} />
               </div>
             ))}
           </div>
@@ -379,7 +380,7 @@ export default function EventsPanel({ bookings }) {
       )}
 
       <Modal open={!!editing} onClose={() => setEditing(null)} wide label="Edit booking">
-        {editing && <EditBookingForm key={editing.id} booking={editing} onClose={() => setEditing(null)} />}
+        {editing && <EditBookingForm key={editing.id} booking={editing} onClose={() => setEditing(null)} packages={packages} />}
       </Modal>
 
       {view === "calendar" && (<>
@@ -395,7 +396,7 @@ export default function EventsPanel({ bookings }) {
           <p className="eyebrow">{fmtDay(selected)}</p>
 
           {dayActive && (
-            <BookingCard b={dayActive} busy={busyId === dayActive.id} onAct={act} onUnblock={unblock} onEdit={setEditing} onDelete={remove} />
+            <BookingCard b={dayActive} busy={busyId === dayActive.id} onAct={act} onUnblock={unblock} onEdit={setEditing} onDelete={remove} packages={packages} />
           )}
 
           {isFree && (

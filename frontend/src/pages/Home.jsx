@@ -1,8 +1,9 @@
 import { useRef } from "react"
 import { Icon, PageLink } from "../components/ui.jsx"
-import { BUSINESS, PACKAGES, image, mapDirectionsUrl, mapEmbedUrl, pesoWhole } from "../lib/constants.js"
+import { BUSINESS, image, mapDirectionsUrl, mapEmbedUrl, pesoWhole, resolveEvents } from "../lib/constants.js"
 
-export default function HomePage({ navigate, products, openProduct }) {
+export default function HomePage({ navigate, products, openProduct, events }) {
+  const startPkg = resolveEvents(events).packages[0]
   const carouselRef = useRef(null)
   const FAVORITES = ["Rookies Special", "Sea Salt Latte", "Matcha Latte", "Salted Caramel"]
   const featured = FAVORITES.map((n) => products.find((p) => p.name === n && p.available)).filter(Boolean)
@@ -161,7 +162,7 @@ export default function HomePage({ navigate, products, openProduct }) {
             <p className="mt-6 max-w-md text-sm leading-7 text-earth-300">
               Weddings, birthdays, debuts, and corporate events—our barista and
               assistant serve freshly prepared drinks from a mobile coffee cart.
-              Packages start at {pesoWhole(PACKAGES[0].price)} for {PACKAGES[0].guests} guests.
+              Packages start at {pesoWhole(startPkg.price)} for {startPkg.guests} guests.
             </p>
             <PageLink
               to="/packages"

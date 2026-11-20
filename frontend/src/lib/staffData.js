@@ -24,6 +24,7 @@ export function useStaffData() {
     qrph: { name: "", qr: "" },
     categories: null,
     about: null,
+    events: null,
   })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")

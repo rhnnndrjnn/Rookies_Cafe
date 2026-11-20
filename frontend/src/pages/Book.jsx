@@ -6,13 +6,12 @@ import EventCalendar from "../components/EventCalendar.jsx"
 import { Chip, FieldMessage, Icon, Input, PageLink, Spinner } from "../components/ui.jsx"
 import {
   BOOKING_LEAD_DAYS,
-  PACKAGES,
-  PACKAGE_OCCASIONS,
   earliestBookable,
   fmtDay,
   makeBookingCode,
   messengerUrl,
   pesoWhole,
+  resolveEvents,
 } from "../lib/constants.js"
 import { createBooking } from "../lib/db.js"
 import { useBookedDates } from "../lib/hooks.js"
@@ -20,8 +19,6 @@ import { useNotify } from "../lib/notify.jsx"
 import { buildBookingMessage, copyText } from "../lib/orderMessage.js"
 import { DEFAULT_PROVINCE, DEFAULT_REGION, formatAddress } from "../lib/phAddress.js"
 import { rules, useLiveForm } from "../lib/validate.js"
-
-const EVENT_TYPES = [...PACKAGE_OCCASIONS, "Other"]
 
 const RULES = {
   date: (v) => (v ? "" : "Pick an open day on the calendar."),
@@ -70,7 +67,10 @@ const policyAlreadyAccepted = () => {
   }
 }
 
-export default function BookPage({ navigate }) {
+export default function BookPage({ navigate, content }) {
+  const events = resolveEvents(content)
+  const packages = events.packages
+  const EVENT_TYPES = [...events.occasions, "Other"]
   const notify = useNotify()
   // Customers must read and accept the booking policies before they can book.
   const [policyOk, setPolicyOk] = useState(policyAlreadyAccepted)
@@ -117,7 +117,7 @@ export default function BookPage({ navigate }) {
     { date, name, phone, email, eventType, eventOther, pkg, guests, venueName, province: addr.province, city: addr.city, barangay: addr.barangay, street: addr.street },
     RULES,
   )
-  const chosenPkg = PACKAGES.find((p) => p.name === pkg)
+  const chosenPkg = packages.find((p) => p.name === pkg)
   const overCapacity = chosenPkg && Number(guests) > chosenPkg.guests
   // the picked day might get booked by someone else while this page is open
   const dayTaken = date && dates[date]
@@ -380,7 +380,7 @@ export default function BookPage({ navigate }) {
 
               <p className="opt-label mt-6">Package</p>
               <div className="mt-3 grid gap-3 sm:grid-cols-3" role="radiogroup" aria-label="Package">
-                {PACKAGES.map((p) => (
+                {packages.map((p) => (
                   <button
                     type="button"
                     key={p.name}

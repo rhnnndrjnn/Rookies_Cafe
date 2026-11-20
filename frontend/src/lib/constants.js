@@ -513,3 +513,64 @@ export const resolveAbout = (saved) => {
   a.gallery = DEFAULT_ABOUT.gallery.map((g, i) => ({ ...g, ...(saved?.gallery?.[i] || {}) }))
   return a
 }
+
+/* ------------------------------------------------------------------ */
+/* Events page — default content (the owner can edit all of it)        */
+/* ------------------------------------------------------------------ */
+export const DEFAULT_EVENTS = {
+  eyebrow: "Event packages",
+  title: "Mobile Coffee Cart",
+  tagline: "Good Coffee. Great Moments. Unforgettable Celebrations.",
+  packages: PACKAGES,
+  service: PACKAGE_SERVICE,
+  inclusionsTitle: "Package inclusions",
+  inclusions: PACKAGE_INCLUSIONS,
+  flavorsTitle: "Choose your flavors from our menu",
+  classicFlavors: [
+    "Americano", "Cappuccino", "Spanish Latte", "Cafe Mocha", "Vanilla Latte",
+    "Hazelnut Latte", "Matcha Latte", "Strawberry", "Blueberry", "Cocoa",
+  ],
+  premiumFlavors: [
+    "Sea Salt Latte", "Rookies Special", "Caramel Macchiato", "White Mocha", "Salted Caramel", "Biscoff Latte", "Dirty Matcha",
+    "Strawberry Matcha", "White Chocolate Matcha", "Matcha Biscoff", "Blueberry Matcha",
+  ],
+  cashTitle: "Exclusive cash payment offer",
+  extraTitle: "Additional flavor selection",
+  extraPremium: PACKAGE_EXTRA_FLAVOR,
+  extraClassic: PACKAGE_EXTRA_CLASSIC,
+  paymentsTitle: "Accepted payment methods",
+  payments: PACKAGE_PAYMENTS,
+  paymentNote: "Regular package rates apply to QRPh and card payments.",
+  occasionsTitle: "Perfect for every occasion",
+  occasions: PACKAGE_OCCASIONS,
+  bookButton: "Check dates & book your event",
+}
+const cleanList = (v, fallback) =>
+  Array.isArray(v) ? v.map((x) => String(x ?? "").trim()).filter(Boolean) : fallback
+const num = (v, fallback) => (Number.isFinite(Number(v)) && v !== "" && v !== null ? Number(v) : fallback)
+/** Saved Events-page content merged over the defaults, so a missing field never breaks the page. */
+export const resolveEvents = (saved) => {
+  const s = saved || {}
+  const e = { ...DEFAULT_EVENTS, ...s }
+  const pk = Array.isArray(s.packages)
+    ? s.packages
+        .filter((p) => p && String(p.name || "").trim())
+        .map((p) => ({
+          name: String(p.name).trim(),
+          guests: num(p.guests, 0),
+          price: num(p.price, 0),
+          cash: num(p.cash, num(p.price, 0)),
+          classic: num(p.classic, 0),
+          premium: num(p.premium, 0),
+        }))
+    : []
+  e.packages = pk.length ? pk : DEFAULT_EVENTS.packages
+  e.inclusions = cleanList(s.inclusions, DEFAULT_EVENTS.inclusions)
+  e.classicFlavors = cleanList(s.classicFlavors, DEFAULT_EVENTS.classicFlavors)
+  e.premiumFlavors = cleanList(s.premiumFlavors, DEFAULT_EVENTS.premiumFlavors)
+  e.payments = cleanList(s.payments, DEFAULT_EVENTS.payments)
+  e.occasions = cleanList(s.occasions, DEFAULT_EVENTS.occasions)
+  e.extraPremium = num(s.extraPremium, DEFAULT_EVENTS.extraPremium)
+  e.extraClassic = num(s.extraClassic, DEFAULT_EVENTS.extraClassic)
+  return e
+}

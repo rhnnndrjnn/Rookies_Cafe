@@ -55,7 +55,7 @@ function CustomerSite({ route, navigate }) {
   }
 
   const pages = {
-    "/": <HomePage navigate={navigate} products={menu.products} openProduct={openProduct} />,
+    "/": <HomePage navigate={navigate} products={menu.products} openProduct={openProduct} events={menu.settings.events} />,
     "/about": <AboutPage navigate={navigate} content={menu.settings.about} />,
     "/menu": (
       <MenuPage
@@ -70,8 +70,8 @@ function CustomerSite({ route, navigate }) {
     ),
     "/orders": <OrdersPage navigate={navigate} myOrders={myOrders} />,
     "/contacts": <ContactsPage />,
-    "/packages": <PackagesPage navigate={navigate} />,
-    "/book": <BookPage navigate={navigate} />,
+    "/packages": <PackagesPage navigate={navigate} content={menu.settings.events} />,
+    "/book": <BookPage navigate={navigate} content={menu.settings.events} />,
     "/cart": (
       <CartPage
         cart={cart}
