@@ -63,7 +63,27 @@ function seedLocal() {
   ])
   writeLocal("seeded_rookie_v2", true)
 }
-if (isDemo) seedLocal()
+// Demo-mode data saved before Flavored Fries became one product (Solo / Sharing picked at order time).
+function migrateFriesLocal() {
+  const rows = readLocal("products")
+  if (!rows || !rows.some((p) => /^Flavored Fries · /.test(p.name))) return
+  const solo = rows.find((p) => p.name === "Flavored Fries · Solo")
+  const sharing = rows.find((p) => p.name === "Flavored Fries · Sharing")
+  const base = solo || sharing
+  const merged = {
+    ...base,
+    name: "Flavored Fries",
+    detail: "Pick Solo or Sharing, then your flavor: BBQ, Cheese, or Sour Cream",
+    price: Number(solo?.price ?? 35),
+    price_22: Number(sharing?.price ?? 85),
+    available: (solo?.available ?? true) || (sharing?.available ?? true),
+  }
+  writeLocal("products", [...rows.filter((p) => !/^Flavored Fries · /.test(p.name)), merged])
+}
+if (isDemo) {
+  seedLocal()
+  migrateFriesLocal()
+}
 
 /* ------------------------------------------------------------------ */
 /* Generic helpers                                                     */

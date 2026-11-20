@@ -2,12 +2,16 @@ import { useMemo, useState } from "react"
 import { Chip, Icon, Modal } from "./ui.jsx"
 import {
   ADDONS,
+  FRIES_FLAVORS,
+  FRIES_SERVINGS,
   HOT_SIZE,
   SIZES,
   DEFAULT_SUGAR,
   SUGAR_LEVELS,
   addonPrice,
+  friesPrice,
   isDrinkCategory,
+  isFries,
   peso,
   unitPrice,
 } from "../lib/constants.js"
@@ -17,20 +21,29 @@ export default function ProductModal({ product, line, onClose, onSubmit }) {
   // Every category except Snacks is a drink and gets sugar level / size / add-ons.
   const isDrink = isDrinkCategory(product?.category)
   const hotAllowed = isDrink && !!product?.has_hot
+  // Flavored Fries: the customer must pick a serving (Solo / Sharing) and a flavor.
+  const fries = isFries(product)
 
   const [sugar, setSugar] = useState(line?.sugar ?? DEFAULT_SUGAR)
   const [temp, setTemp] = useState(line?.temp === "Hot" && hotAllowed ? "Hot" : "Iced")
   const [size, setSize] = useState(SIZES.includes(line?.size) ? line.size : SIZES[0])
   const [addons, setAddons] = useState(line?.addons || [])
   const [qty, setQty] = useState(line?.qty || 1)
+  const [serving, setServing] = useState(FRIES_SERVINGS.includes(line?.serving) ? line.serving : "")
+  const [flavor, setFlavor] = useState(FRIES_FLAVORS.includes(line?.flavor) ? line.flavor : "")
+  const [tried, setTried] = useState(false) // show what is missing after a tap on "Add to cart"
+  const needsPick = fries && (!serving || !flavor)
 
   const isHot = isDrink && temp === "Hot"
   const effectiveSize = !isDrink ? undefined : isHot ? HOT_SIZE : size
 
   // Hot drinks are a single 8oz size and priced at the base (16oz) price.
   const price = useMemo(
-    () => unitPrice(product, effectiveSize === "22oz" ? "22oz" : "16oz", isDrink ? addons : []),
-    [product, effectiveSize, addons, isDrink],
+    () =>
+      fries
+        ? friesPrice(product, serving || "Solo")
+        : unitPrice(product, effectiveSize === "22oz" ? "22oz" : "16oz", isDrink ? addons : []),
+    [product, effectiveSize, addons, isDrink, fries, serving],
   )
 
   const addonOptions = ADDONS[product?.category] || []
@@ -38,6 +51,7 @@ export default function ProductModal({ product, line, onClose, onSubmit }) {
     setAddons((cur) => (cur.includes(a) ? cur.filter((x) => x !== a) : [...cur, a]))
 
   const submit = () => {
+    if (needsPick) return setTried(true)
     onSubmit({
       productId: product.id,
       name: product.name,
@@ -46,6 +60,8 @@ export default function ProductModal({ product, line, onClose, onSubmit }) {
       sugar: isDrink ? sugar : undefined,
       temp: isDrink ? temp : undefined,
       size: effectiveSize,
+      serving: fries ? serving : undefined,
+      flavor: fries ? flavor : undefined,
       addons: isDrink ? addons : [],
       qty,
       unitPrice: price,
@@ -78,6 +94,37 @@ export default function ProductModal({ product, line, onClose, onSubmit }) {
 
           <div className="space-y-6 p-5 sm:p-7">
             {product.detail && <p className="text-sm leading-6 text-earth-600">{product.detail}</p>}
+
+            {fries && (
+              <>
+                <section>
+                  <div className="mb-3 flex items-baseline justify-between gap-3">
+                    <p className="opt-label">Serving</p>
+                    {tried && !serving && <p className="text-[11px] font-semibold text-red-700">Pick one</p>}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {FRIES_SERVINGS.map((s) => (
+                      <Chip key={s} active={serving === s} onClick={() => setServing(s)}>
+                        {s} · {peso(friesPrice(product, s))}
+                      </Chip>
+                    ))}
+                  </div>
+                </section>
+                <section>
+                  <div className="mb-3 flex items-baseline justify-between gap-3">
+                    <p className="opt-label">Flavor</p>
+                    {tried && !flavor && <p className="text-[11px] font-semibold text-red-700">Pick one</p>}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {FRIES_FLAVORS.map((fl) => (
+                      <Chip key={fl} active={flavor === fl} onClick={() => setFlavor(fl)}>
+                        {fl}
+                      </Chip>
+                    ))}
+                  </div>
+                </section>
+              </>
+            )}
 
             {hotAllowed && (
               <section>
@@ -161,8 +208,12 @@ export default function ProductModal({ product, line, onClose, onSubmit }) {
                   <Icon name="plus" size={16} />
                 </button>
               </div>
-              <button onClick={submit} className="primary-button flex-1">
-                {line ? "Update item" : "Add to cart"} · {peso(price * qty)}
+              <button
+                onClick={submit}
+                aria-disabled={needsPick}
+                className={`primary-button flex-1 ${needsPick ? "opacity-60" : ""}`}
+              >
+                {needsPick ? "Pick serving & flavor" : `${line ? "Update item" : "Add to cart"} · ${peso(price * qty)}`}
               </button>
             </div>
           </div>

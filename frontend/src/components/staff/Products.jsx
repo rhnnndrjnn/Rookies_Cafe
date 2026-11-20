@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { FieldMessage, Icon, Input, Modal } from "../ui.jsx"
-import { CATEGORIES, SIZE_UPCHARGE, isDrinkCategory, peso } from "../../lib/constants.js"
+import { CATEGORIES, FRIES_SHARING_DEFAULT, SIZE_UPCHARGE, isDrinkCategory, isFries, peso } from "../../lib/constants.js"
 import { deleteProduct, saveProduct, uploadImage } from "../../lib/db.js"
 import { useNotify } from "../../lib/notify.jsx"
 import { rules, useLiveForm } from "../../lib/validate.js"
@@ -27,6 +27,7 @@ function ProductForm({ product, onClose }) {
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }))
   const form = useLiveForm(f, RULES)
   const isDrink = isDrinkCategory(f.category)
+  const fries = isFries(f) // Flavored Fries: price = Solo, price_22 = Sharing
 
   const upload = async (file) => {
     if (!file) return
@@ -52,7 +53,11 @@ function ProductForm({ product, onClose }) {
       detail: f.detail.trim(),
       category: f.category,
       price,
-      price_22: isDrink ? Number(f.price_22) || price + SIZE_UPCHARGE : null,
+      price_22: isDrink
+        ? Number(f.price_22) || price + SIZE_UPCHARGE
+        : fries
+          ? Number(f.price_22) || FRIES_SHARING_DEFAULT
+          : null,
       image: f.image.trim(),
       available: f.available,
       has_hot: isDrink ? !!f.has_hot : false,
@@ -101,7 +106,7 @@ function ProductForm({ product, onClose }) {
           </select>
         </label>
         <label className="block">
-          <span className="opt-label">{isDrink ? "Price · 16oz (₱)" : "Price (₱)"}</span>
+          <span className="opt-label">{isDrink ? "Price · 16oz (₱)" : fries ? "Price · Solo (₱)" : "Price (₱)"}</span>
           <Input
             kind="decimal"
             value={f.price}
@@ -114,16 +119,16 @@ function ProductForm({ product, onClose }) {
           />
           <FieldMessage error={form.shown("price")} hint="Numbers only" />
         </label>
-        {isDrink && (
+        {(isDrink || fries) && (
           <label className="block">
-            <span className="opt-label">Price · 22oz (₱)</span>
+            <span className="opt-label">{fries ? "Price · Sharing (₱)" : "Price · 22oz (₱)"}</span>
             <Input
               kind="decimal"
               value={f.price_22}
               onValue={(v) => set("price_22", v)}
               onBlur={() => form.blur("price_22")}
               error={form.shown("price_22")}
-              placeholder={`+${SIZE_UPCHARGE} if blank`}
+              placeholder={fries ? `${FRIES_SHARING_DEFAULT} if blank` : `+${SIZE_UPCHARGE} if blank`}
               maxLength={9}
               className="input-box mt-2"
             />

@@ -40,7 +40,7 @@ export function useCart() {
     setItems((prev) => {
       // merge identical configurations
       const sig = (l) =>
-        JSON.stringify([l.productId, l.sugar, l.temp, l.size, [...(l.addons || [])].sort()])
+        JSON.stringify([l.productId, l.sugar, l.temp, l.size, l.serving, l.flavor, [...(l.addons || [])].sort()])
       const same = prev.find((p) => sig(p) === sig(line))
       if (same)
         return prev.map((p) =>

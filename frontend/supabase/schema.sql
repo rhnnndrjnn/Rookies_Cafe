@@ -241,8 +241,7 @@ insert into products (name, detail, price, price_22, category, image, has_hot) v
 ('Thai Pink Milk', 'Sweet, creamy Thai-style pink milk over ice', 120, 155, 'Non-Espresso', 'https://images.unsplash.com/photo-1558160074-4d7d8bdf4256?auto=format&fit=crop&w=1000&q=82', false),
 ('Cheesy Beef Nachos', 'Nachos loaded with beef and cheese sauce · Sharing', 125, null, 'Snacks', '', false),
 ('Cheesy Fries', 'Fries smothered in cheese sauce · Sharing', 125, null, 'Snacks', '', false),
-('Flavored Fries · Solo', 'Choose BBQ, Cheese, or Sour Cream', 35, null, 'Snacks', '', false),
-('Flavored Fries · Sharing', 'Choose BBQ, Cheese, or Sour Cream', 85, null, 'Snacks', '', false);
+('Flavored Fries', 'Pick Solo or Sharing, then your flavor: BBQ, Cheese, or Sour Cream', 35, 85, 'Snacks', '', false);
 
 /* ------------------------------------------------- creating staff accounts
 1. Supabase > Authentication > Users > "Add user" (tick "Auto confirm user").

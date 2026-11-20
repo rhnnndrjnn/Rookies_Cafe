@@ -76,6 +76,17 @@ export const SIZE_UPCHARGE = 35 // Upsize 16oz → 22oz
 export const DRINK_CATEGORIES = CATEGORIES.filter((c) => c !== "Snacks")
 export const isDrinkCategory = (c) => DRINK_CATEGORIES.includes(c)
 export const SIZES = ["16oz", "22oz"]
+
+// Flavored Fries is ONE snack: the customer picks a serving (Solo / Sharing) and a flavor.
+// product.price = Solo price, product.price_22 = Sharing price (the owner can edit both).
+export const FRIES_SERVINGS = ["Solo", "Sharing"]
+export const FRIES_FLAVORS = ["BBQ", "Cheese", "Sour Cream"]
+export const FRIES_SHARING_DEFAULT = 85
+export const isFries = (p) => p?.category === "Snacks" && /^flavored fries/i.test(p?.name || "")
+export const friesPrice = (product, serving) =>
+  serving === "Sharing"
+    ? Number(product.price_22 ?? FRIES_SHARING_DEFAULT)
+    : Number(product.price)
 export const HOT_SIZE = "8oz" // hot drinks are served in one size only
 // Espresso-based categories — these default to "can be served hot" in the seed menu.
 const HOT_CATEGORIES = ["Classic", "Premium"]
@@ -157,6 +168,8 @@ export const unitPrice = (product, size, addons = []) => {
 
 export const lineSummary = (line) => {
   const parts = []
+  if (line.serving) parts.push(line.serving)
+  if (line.flavor) parts.push(line.flavor)
   if (line.temp) parts.push(`${line.temp} ${line.size}`)
   else if (line.size) parts.push(line.size)
   if (line.sugar !== undefined && line.sugar !== null && line.sugar !== "")
@@ -283,12 +296,16 @@ const DRINKS = [
   ["Thai Pink Milk", "Sweet, creamy Thai-style pink milk over ice", PRICES.nonEspresso, "Non-Espresso", IMG.berry],
 ]
 
-// [name, detail, price]
+// [name, detail, price, price_22 (Sharing price for Flavored Fries)]
 const SNACKS = [
   ["Cheesy Beef Nachos", "Nachos loaded with beef and cheese sauce · Sharing", PRICES.nachos],
   ["Cheesy Fries", "Fries smothered in cheese sauce · Sharing", PRICES.cheesyFries],
-  ["Flavored Fries · Solo", "Choose BBQ, Cheese, or Sour Cream", PRICES.flavoredFriesSolo],
-  ["Flavored Fries · Sharing", "Choose BBQ, Cheese, or Sour Cream", PRICES.flavoredFriesSharing],
+  [
+    "Flavored Fries",
+    "Pick Solo or Sharing, then your flavor: BBQ, Cheese, or Sour Cream",
+    PRICES.flavoredFriesSolo,
+    PRICES.flavoredFriesSharing,
+  ],
 ]
 
 export const SEED_PRODUCTS = [
@@ -302,11 +319,11 @@ export const SEED_PRODUCTS = [
     available: true,
     has_hot: HOT_CATEGORIES.includes(category) || HOT_DRINKS.includes(name),
   })),
-  ...SNACKS.map(([name, detail, price]) => ({
+  ...SNACKS.map(([name, detail, price, price22]) => ({
     name,
     detail,
     price,
-    price_22: null,
+    price_22: price22 ?? null,
     category: "Snacks",
     image: "", // add a photo from Owner portal → Products
     available: true,
