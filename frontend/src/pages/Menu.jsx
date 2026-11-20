@@ -104,7 +104,7 @@ export default function MenuPage({ products, categories, loading, error, query, 
                   }`}
                 >
                   <div className="relative size-[74px] shrink-0 overflow-hidden rounded-xl bg-earth-200 sm:size-24">
-                    <ProductSticker label={item.badge} className="right-1 top-1 px-1.5 py-0.5 text-[6px] sm:right-1 sm:top-1 sm:text-[7px]" />
+                    <ProductSticker label={item.badge} />
                     {item.image && (
                       <img
                         src={item.image}

@@ -1,14 +1,18 @@
 const STICKER_STYLES = {
-  New: "bg-[#A83D2D] text-white",
-  "Best Seller": "bg-[#D6A33A] text-[#2B1A12]",
-  "Must Try": "bg-[#496C53] text-white",
-  "For Sharing": "bg-[#5B557D] text-white",
+  New: "bg-[#F7E8D8]/90 text-[#80543A] ring-[#D9B99B]/70",
+  "Best Seller": "bg-[#EAD9A8]/90 text-[#76551B] ring-[#D5BD7C]/70",
+  "Must Try": "bg-[#DCE6D7]/90 text-[#496347] ring-[#B7C9B0]/70",
+  "For Sharing": "bg-[#E8DED2]/90 text-[#725B49] ring-[#CDBBA8]/70",
 }
 
 export default function ProductSticker({ label, className = "" }) {
   if (!label) return null
+
   return (
-    <span className={`pointer-events-none absolute right-2 top-2 z-10 inline-flex max-w-[85%] -rotate-2 items-center rounded-sm px-2 py-1 text-[8px] font-black uppercase tracking-[.12em] shadow-md ring-1 ring-white/50 sm:right-3 sm:top-3 sm:text-[9px] ${STICKER_STYLES[label] || "bg-earth-700 text-white"} ${className}`}>
+    <span
+      aria-label={label}
+      className={`pointer-events-none absolute right-1.5 top-1.5 z-10 inline-flex max-w-[70%] items-center rounded-full px-1.5 py-[3px] text-[6px] font-bold uppercase leading-none tracking-[.08em] ring-1 ring-inset backdrop-blur-[2px] sm:right-2 sm:top-2 sm:px-2 sm:py-1 sm:text-[7px] ${STICKER_STYLES[label] || "bg-[#F2E9DF]/90 text-[#725B49] ring-[#CDBBA8]/70"} ${className}`}
+    >
       {label}
     </span>
   )
