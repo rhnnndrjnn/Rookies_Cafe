@@ -249,14 +249,6 @@ export const METHOD_LABEL = {
 export const needsReceipt = (method) => method === "gcash" || method === "qrph";
 export const atCounter = (method) => !needsReceipt(method);
 
-// Opening hours: [open, close] in 24h. Used to limit the arrival-time clock (not shown on the site).
-export const HOURS = { weekday: [10, 22], weekend: [10, 23] };
-
-const hourLabel = (h) =>
-  `${((h + 11) % 12) + 1}:00 ${h < 12 || h === 24 ? "AM" : "PM"}`;
-export const hoursText = (range) =>
-  `${hourLabel(range[0])} — ${hourLabel(range[1])}`;
-
 export const peso = (n) => `₱${Number(n || 0).toFixed(2)}`;
 export const pesoWhole = (n) => `₱${Number(n || 0).toLocaleString("en-PH")}`;
 

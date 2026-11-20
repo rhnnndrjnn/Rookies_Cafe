@@ -185,9 +185,6 @@ export default function CartPage({ cart, navigate, products, onEdit, storeOpen }
                     <dd className="display-title text-2xl">{peso(cart.selectedTotal)}</dd>
                   </div>
                 </dl>
-                <p className="mt-4 rounded-xl bg-earth-100 p-3 text-xs leading-5 text-earth-700">
-                  We don’t deliver — orders are placed in advance and picked up at Rookies Cafe.
-                </p>
                 {nothingSelected && (
                   <p role="alert" className="mt-3 rounded-xl bg-[#F3DEDB] p-3 text-xs leading-5 text-[#8F3B31]">
                     Tick at least one item above to place an order.

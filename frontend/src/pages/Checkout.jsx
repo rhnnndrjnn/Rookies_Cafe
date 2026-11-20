@@ -4,7 +4,6 @@ import ClockPicker from "../components/ClockPicker.jsx"
 import CopyTemplate from "../components/CopyTemplate.jsx"
 import { FieldMessage, Icon, Input, Modal, PageLink } from "../components/ui.jsx"
 import {
-  HOURS,
   METHOD_LABEL,
   ORDER_TYPES,
   PAYMENT_METHODS,
@@ -25,19 +24,57 @@ import { lineProblem } from "./Cart.jsx"
 const LEAD_MINUTES = 20
 const STEP_MINUTES = 5
 
-/** Earliest and latest time you can pick today (opening hours, 20 minutes' notice). */
-function timeWindow() {
+/** Use owner-entered Contacts hours when present; otherwise don't impose default opening hours. */
+function timeWindow(hours = "") {
   const now = new Date()
-  const [open, close] = [0, 6].includes(now.getDay()) ? HOURS.weekend : HOURS.weekday
   const earliest = new Date(now.getTime() + LEAD_MINUTES * 60000)
   earliest.setSeconds(0, 0)
   earliest.setMinutes(Math.ceil(earliest.getMinutes() / STEP_MINUTES) * STEP_MINUTES)
-  const opening = new Date(now)
-  opening.setHours(open, 0, 0, 0)
-  const closing = new Date(now)
-  closing.setHours(close, 0, 0, 0)
-  const min = earliest > opening ? earliest : opening
-  return { min, max: closing, available: min <= closing }
+  const endOfDay = new Date(now)
+  endOfDay.setHours(23, 59, 0, 0)
+  let min = earliest
+  let max = endOfDay
+
+  const parseClock = (value, meridiem) => {
+    const match = value.trim().match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)?$/i)
+    if (!match) return null
+    let hour = Number(match[1])
+    const minute = Number(match[2] || 0)
+    const period = (match[3] || meridiem || "").toUpperCase()
+    if (period === "PM" && hour !== 12) hour += 12
+    if (period === "AM" && hour === 12) hour = 0
+    if (hour > 23 || minute > 59) return null
+    return [hour, minute]
+  }
+  const dayNames = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]
+  const today = dayNames[now.getDay()]
+  const lines = String(hours).split(/\n|;/).map((line) => line.trim()).filter(Boolean)
+  const matching = lines.filter((line) => {
+    const lower = line.toLowerCase()
+    if (/daily|every day|all days/.test(lower)) return true
+    if (/weekday|mon\s*[-–to]+\s*fri/.test(lower)) return now.getDay() >= 1 && now.getDay() <= 5
+    if (/weekend|sat\s*[-–to]+\s*sun/.test(lower)) return now.getDay() === 0 || now.getDay() === 6
+    const mentionsDays = dayNames.some((day) => lower.includes(day))
+    return !mentionsDays || lower.includes(today)
+  })
+  const source = matching.length ? matching : lines
+  const range = /(\d{1,2}(?::\d{2})?\s*(?:AM|PM)?)\s*(?:-|–|—|to)\s*(\d{1,2}(?::\d{2})?\s*(?:AM|PM)?)/i
+  for (const line of source) {
+    const found = line.match(range)
+    if (!found) continue
+    const endPeriod = found[2].match(/AM|PM/i)?.[0]
+    const start = parseClock(found[1], endPeriod)
+    const finish = parseClock(found[2], endPeriod)
+    if (start && finish) {
+      const opening = new Date(now)
+      opening.setHours(start[0], start[1], 0, 0)
+      min = earliest > opening ? earliest : opening
+      max = new Date(now)
+      max.setHours(finish[0], finish[1], 0, 0)
+      break
+    }
+  }
+  return { min, max, available: min <= max }
 }
 
 const clockLabel = (d) => d.toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" })
@@ -171,7 +208,7 @@ function MessengerButton({ className = "primary-button", children, text = "" }) 
 
 export default function CheckoutPage({ cart, navigate, products, settings, storeOpen }) {
   const notify = useNotify()
-  const win = useMemo(timeWindow, [])
+  const win = useMemo(() => timeWindow(settings.contacts?.hours || ""), [settings.contacts?.hours])
   const [orderType, setOrderType] = useState("take_out")
   const [name, setName] = useState("")
   const [addr, setAddrState] = useState({
@@ -242,7 +279,7 @@ export default function CheckoutPage({ cart, navigate, products, settings, store
     if (!f.valid) return setError("Please fix the highlighted fields first.")
     if (!templateCopied) return setError("Please copy your order template first (step 4).")
     // the page may have been open a while — make sure the chosen time is still allowed
-    const fresh = timeWindow()
+    const fresh = timeWindow(settings.contacts?.hours || "")
     if (!fresh.available || arrivalAt < fresh.min) {
       setArrivalAt(fresh.min)
       return setError("That time has passed — we moved it to the earliest available time. Please check it and try again.")
