@@ -95,7 +95,7 @@ export default function PackagesPage({ navigate, content }) {
           <div className="rounded-2xl border border-earth-300 bg-earth-50 p-6 shadow-md">
             <p className="eyebrow">{e.extraTitle}</p>
             <p className="mt-3 text-sm leading-6 text-earth-700">
-              Additional premium flavors on your menu may cost{" "}
+              Additional Premium flavors on your menu may cost{" "}
               <strong>{pesoWhole(e.extraPremium)} each selection.</strong>
             </p>
             <p className="mt-3 text-sm leading-6 text-earth-700">
