@@ -7,7 +7,7 @@ import { BOOKING_POLICIES, BUSINESS } from "../lib/constants.js"
  *  - mode="accept": must be accepted (tick the box, then Accept) before the customer can book.
  *  - mode="view": read-only, just a Close button.
  */
-export default function BookingPolicyModal({ mode = "accept", onAccept, onDecline, onClose }) {
+export default function BookingPolicyModal({ mode = "accept", policies = BOOKING_POLICIES, onAccept, onDecline, onClose }) {
   const [agreed, setAgreed] = useState(false)
   const accept = mode === "accept"
 
@@ -41,7 +41,7 @@ export default function BookingPolicyModal({ mode = "accept", onAccept, onDeclin
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-8">
           <div className="space-y-4">
-            {BOOKING_POLICIES.map((sec, i) => (
+            {policies.map((sec, i) => (
               <section key={sec.title} className="rounded-2xl border border-earth-300 bg-earth-100/60 p-4">
                 <h3 className="text-sm font-bold uppercase tracking-[.08em]">
                   {i + 1}. {sec.title}

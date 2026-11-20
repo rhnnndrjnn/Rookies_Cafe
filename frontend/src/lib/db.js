@@ -188,6 +188,7 @@ export async function getSettings() {
     events: null, // owner's Events-page content (null = defaults)
     home: null, // owner's Home-page content (null = defaults)
     contacts: null, // owner's Contacts-page content (null = defaults)
+    booking_policy: null, // owner-editable booking policies (null = defaults)
   }
   rows.forEach((r) => (out[r.key] = r.value))
   return out

@@ -71,7 +71,7 @@ function CustomerSite({ route, navigate }) {
     "/orders": <OrdersPage navigate={navigate} myOrders={myOrders} />,
     "/contacts": <ContactsPage content={menu.settings.contacts} />,
     "/packages": <PackagesPage navigate={navigate} content={menu.settings.events} />,
-    "/book": <BookPage navigate={navigate} content={menu.settings.events} />,
+    "/book": <BookPage navigate={navigate} content={menu.settings.events} bookingPolicy={menu.settings.booking_policy} />,
     "/cart": (
       <CartPage
         cart={cart}

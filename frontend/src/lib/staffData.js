@@ -27,6 +27,7 @@ export function useStaffData() {
     events: null,
     home: null,
     contacts: null,
+    booking_policy: null,
   })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")

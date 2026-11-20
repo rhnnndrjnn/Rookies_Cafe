@@ -1,6 +1,7 @@
 import { useRef, useState } from "react"
 import AddressFields from "../components/AddressFields.jsx"
 import BookingPolicyModal from "../components/BookingPolicyModal.jsx"
+import { resolveBookingPolicy } from "../components/staff/BookingPolicyEditor.jsx"
 import CopyTemplate from "../components/CopyTemplate.jsx"
 import EventCalendar from "../components/EventCalendar.jsx"
 import { Chip, FieldMessage, Icon, Input, PageLink, Spinner } from "../components/ui.jsx"
@@ -67,9 +68,10 @@ const policyAlreadyAccepted = () => {
   }
 }
 
-export default function BookPage({ navigate, content }) {
+export default function BookPage({ navigate, content, bookingPolicy }) {
   const events = resolveEvents(content)
   const packages = events.packages
+  const policies = resolveBookingPolicy(bookingPolicy)
   const EVENT_TYPES = [...events.occasions, "Other"]
   const notify = useNotify()
   // Customers must read and accept the booking policies before they can book.
@@ -231,8 +233,8 @@ export default function BookPage({ navigate, content }) {
 
   return (
     <main className="bg-earth-200">
-      {!policyOk && <BookingPolicyModal mode="accept" onAccept={acceptPolicy} onDecline={() => navigate("/packages")} />}
-      {policyView && <BookingPolicyModal mode="view" onClose={() => setPolicyView(false)} />}
+      {!policyOk && <BookingPolicyModal mode="accept" policies={policies} onAccept={acceptPolicy} onDecline={() => navigate("/packages")} />}
+      {policyView && <BookingPolicyModal mode="view" policies={policies} onClose={() => setPolicyView(false)} />}
       <section className="border-b border-earth-300 bg-earth-100 px-5 py-14 sm:px-8 lg:px-12 lg:py-16">
         <div className="mx-auto max-w-[1200px]">
           <p className="eyebrow">Mobile coffee cart</p>
