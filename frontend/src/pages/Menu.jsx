@@ -29,12 +29,12 @@ export default function MenuPage({ products, categories, loading, error, query, 
   return (
     <main className="min-h-screen bg-earth-200">
       <section className="border-b border-earth-300 bg-earth-100 px-5 py-14 sm:px-8 lg:px-12 lg:py-16">
-        <div className="mx-auto flex max-w-[1040px] flex-col justify-between gap-6 sm:flex-row sm:items-end">
-          <div>
+        <div className="mx-auto flex max-w-[1040px] flex-col justify-between gap-6 lg:flex-row lg:items-end">
+          <div className="shrink-0">
             <p className="eyebrow">Drink & snack menu</p>
-            <h1 className="display-title mt-3 text-6xl tracking-[-.05em] sm:text-7xl">The menu</h1>
+            <h1 className="display-title mt-3 whitespace-nowrap text-5xl tracking-[-.05em] sm:text-6xl lg:text-7xl">The menu</h1>
           </div>
-          <div className="flex h-12 w-full items-center gap-2 rounded-full border border-earth-300 bg-earth-50 px-4 sm:w-80">
+          <div className="flex h-12 w-full items-center gap-2 rounded-full border border-earth-300 bg-earth-50 px-4 lg:w-80">
             <Icon name="search" size={17} />
             <input
               value={query}
@@ -63,7 +63,7 @@ export default function MenuPage({ products, categories, loading, error, query, 
               <button
                 key={category}
                 onClick={() => setActiveCategory(category)}
-                className={`relative min-w-[118px] flex-1 whitespace-nowrap rounded-full px-4 py-3 text-left text-sm font-semibold transition sm:text-center ${
+                className={`relative shrink-0 grow whitespace-nowrap rounded-full px-5 py-3 text-center text-sm font-semibold transition ${
                   activeCategory === category
                     ? "bg-earth-700 !text-earth-50"
                     : "text-earth-600 hover:bg-earth-300 hover:text-earth-900"

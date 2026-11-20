@@ -217,7 +217,7 @@ export function StaffLayout({ role, session, tabs, tab, setTab, onLogout, naviga
         <div className="mx-auto flex min-h-14 max-w-[1600px] items-center justify-between gap-2 px-3 py-2 sm:min-h-16 sm:gap-3 sm:px-8">
           <div className="flex min-w-0 items-center gap-3">
             <img src={logo} alt="Rookies Cafe" className="h-8 w-auto shrink-0 object-contain sm:h-10" />
-            <div className="hidden min-w-0 sm:block">
+            <div className="hidden min-w-0 xl:block">
               <p className="text-[9px] font-bold uppercase tracking-[.2em] text-earth-600">{label}</p>
               <p className="truncate text-sm font-semibold">Hi, {session.username}</p>
             </div>
@@ -234,7 +234,7 @@ export function StaffLayout({ role, session, tabs, tab, setTab, onLogout, naviga
         </div>
       </header>
       <div className="mx-auto grid max-w-[1600px] gap-3 px-3 py-3 sm:gap-5 sm:px-8 sm:py-5 lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-8 lg:py-8 2xl:grid-cols-[240px_minmax(0,1fr)]">
-        <nav className="no-scrollbar sticky top-[56px] z-30 -mx-3 flex gap-1 overflow-x-auto border-b border-earth-300 bg-earth-100/95 px-3 py-2 backdrop-blur sm:top-16 sm:-mx-8 sm:px-8 lg:sticky lg:top-[88px] lg:mx-0 lg:h-fit lg:flex-col lg:overflow-visible lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none" aria-label={`${label} sections`}>
+        <nav className="tab-fade no-scrollbar sticky top-[56px] z-30 -mx-3 flex gap-1 overflow-x-auto border-b border-earth-300 bg-earth-100/95 px-3 py-2 backdrop-blur sm:top-16 sm:-mx-8 sm:px-8 lg:sticky lg:top-[88px] lg:mx-0 lg:h-fit lg:flex-col lg:overflow-visible lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none" aria-label={`${label} sections`}>
           {tabs.map((t) => (
             <button
               key={t.id}
