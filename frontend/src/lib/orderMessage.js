@@ -6,12 +6,14 @@ const timeText = (iso) =>
 /** The plain-text order the customer pastes into Messenger. */
 export function buildOrderMessage(order, { lalamove = false } = {}) {
   const isDelivery = order.order_type === "delivery"
+  const arrivalDate = new Date(order.arrival_time)
+  const datePart = arrivalDate.toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })
   const lines = [
     `NEW ORDER — ${BUSINESS.short}`,
     `Order code: ${order.code}`,
     `Name: ${order.customer_name}`,
     `Order type: ${ORDER_TYPE_LABEL[order.order_type]}`,
-    `${isDelivery ? "Delivery" : "Arrival"} time: Today, ${timeText(order.arrival_time)}`,
+    `${isDelivery ? "Delivery" : "Arrival"} time: ${datePart}, ${timeText(order.arrival_time)}`,
   ]
   if (isDelivery) lines.push(`Delivery address: ${order.delivery_address}`)
   if (lalamove) lines.push("Delivery via: Lalamove (outside Teresa) — rider fare and other charges may apply, please confirm with me")

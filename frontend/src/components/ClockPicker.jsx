@@ -2,8 +2,9 @@ import { useRef, useState } from "react"
 
 /**
  * Clock-face time picker (hour dial -> minute dial, AM/PM toggle). Works with touch and mouse;
- * times outside [min, max] are greyed out and can't be chosen.
- *   value: Date   onChange: (Date) => void   min / max: Date (today)
+ * Times earlier than the minimum lead time are unavailable. Earlier clock times
+ * roll over to the next day, so the dial remains usable across midnight.
+ *   value: Date   onChange: (Date) => void   min: Date
  */
 const STEP = 5
 const MINUTES = Array.from({ length: 60 / STEP }, (_, i) => i * STEP)
@@ -12,7 +13,7 @@ const LABEL_R = 92
 const polar = (deg, r) => [C + r * Math.sin((deg * Math.PI) / 180), C - r * Math.cos((deg * Math.PI) / 180)]
 const pad = (n) => String(n).padStart(2, "0")
 
-export default function ClockPicker({ value, onChange, min, max }) {
+export default function ClockPicker({ value, onChange, min }) {
   const [mode, setMode] = useState("hour")
   const svgRef = useRef(null)
   const dragging = useRef(false)
@@ -25,9 +26,11 @@ export default function ClockPicker({ value, onChange, min, max }) {
   const make = (h, m, isPm) => {
     const d = new Date(min)
     d.setHours((h % 12) + (isPm ? 12 : 0), m, 0, 0)
+    // A clock time earlier than the minimum means the following calendar day.
+    if (d < min) d.setDate(d.getDate() + 1)
     return d
   }
-  const ok = (d) => d >= min && d <= max
+  const ok = (d) => d >= min
   const hourOk = (h) => MINUTES.some((m) => ok(make(h, m, pm)))
   const minuteOk = (m) => ok(make(h12, m, pm))
   const periodOk = (isPm) =>
@@ -147,7 +150,7 @@ export default function ClockPicker({ value, onChange, min, max }) {
         })}
       </svg>
       <p className="mt-1 text-center text-[10px] leading-4 text-earth-600">
-        {mode === "hour" ? "Tap or drag to pick the hour" : "Now pick the minutes"} · greyed times aren’t available
+        {mode === "hour" ? "Tap or drag to pick the hour" : "Now pick the minutes"} · times before the 5-minute lead time aren’t available
       </p>
     </div>
   )

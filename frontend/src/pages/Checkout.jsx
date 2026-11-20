@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react"
+import { useRef, useState } from "react"
 import AddressFields from "../components/AddressFields.jsx"
 import ClockPicker from "../components/ClockPicker.jsx"
 import CopyTemplate from "../components/CopyTemplate.jsx"
@@ -27,15 +27,18 @@ const STEP_MINUTES = 5
 /** Arrival is available any time while the store is open, starting 5 minutes from now. */
 function timeWindow() {
   const now = new Date()
-  const earliest = new Date(now.getTime() + LEAD_MINUTES * 60000)
-  earliest.setSeconds(0, 0)
-  earliest.setMinutes(Math.ceil(earliest.getMinutes() / STEP_MINUTES) * STEP_MINUTES)
-  const max = new Date(now)
-  max.setHours(23, 55, 0, 0)
-  return { min: earliest, max, available: earliest <= max }
+  const stepMs = STEP_MINUTES * 60000
+  const earliest = new Date(Math.ceil((now.getTime() + LEAD_MINUTES * 60000) / stepMs) * stepMs)
+  return { min: earliest, available: true }
 }
 
-const clockLabel = (d) => d.toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" })
+const clockLabel = (d) => {
+  const time = d.toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" })
+  const date = d.toDateString() === new Date().toDateString()
+    ? ""
+    : `${d.toLocaleDateString("en-PH", { month: "short", day: "numeric" })} · `
+  return `${date}${time}`
+}
 
 const RULES = {
   name: rules.name,
@@ -54,21 +57,21 @@ const RULES = {
 }
 
 /** "Select time" pop-up with the clock. OK saves the time, Cancel keeps the old one. */
-function TimeDialog({ open, onClose, value, onSave, min, max, title }) {
+function TimeDialog({ open, onClose, value, onSave, min, title }) {
   return (
     <Modal open={open} onClose={onClose} label={title}>
-      {open && <TimeDialogBody onClose={onClose} value={value} onSave={onSave} min={min} max={max} title={title} />}
+      {open && <TimeDialogBody onClose={onClose} value={value} onSave={onSave} min={min} title={title} />}
     </Modal>
   )
 }
-function TimeDialogBody({ onClose, value, onSave, min, max, title }) {
+function TimeDialogBody({ onClose, value, onSave, min, title }) {
   const [draft, setDraft] = useState(value)
   return (
     <div className="p-5 sm:p-7">
       <p className="text-[11px] font-bold uppercase tracking-[.16em] text-earth-600">Select time</p>
       <p className="display-title mt-1 text-2xl">{title}</p>
       <div className="mt-5">
-        <ClockPicker value={draft} onChange={setDraft} min={min} max={max} />
+        <ClockPicker value={draft} onChange={setDraft} min={min} />
       </div>
       <div className="mt-6 flex justify-end gap-2">
         <button type="button" onClick={onClose} className="btn-sm">
@@ -166,7 +169,7 @@ function MessengerButton({ className = "primary-button", children, text = "" }) 
 
 export default function CheckoutPage({ cart, navigate, products, settings, storeOpen }) {
   const notify = useNotify()
-  const win = useMemo(() => timeWindow(), [])
+  const win = timeWindow()
   const [orderType, setOrderType] = useState("take_out")
   const [name, setName] = useState("")
   const [addr, setAddrState] = useState({
@@ -420,11 +423,15 @@ export default function CheckoutPage({ cart, navigate, products, settings, store
               {isDelivery && <AddressFields a={addr} set={setAddr} f={f} />}
 
               <div className="mt-5">
-                <span className="opt-label">{type.timeLabel} (today)</span>
+                <span className="opt-label">{type.timeLabel}</span>
                 {win.available && storeOpen ? (
                   <button
                     type="button"
-                    onClick={() => setTimeOpen(true)}
+                    onClick={() => {
+                      const fresh = timeWindow()
+                      if (arrivalAt < fresh.min) setArrivalAt(fresh.min)
+                      setTimeOpen(true)
+                    }}
                     className="input-box mt-2 flex w-full items-center justify-between gap-3 text-left"
                     aria-haspopup="dialog"
                   >
@@ -446,7 +453,6 @@ export default function CheckoutPage({ cart, navigate, products, settings, store
                     value={arrivalAt}
                     onSave={setArrivalAt}
                     min={win.min}
-                    max={win.max}
                     title={type.timeLabel}
                   />
                 )}
