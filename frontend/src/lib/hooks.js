@@ -11,6 +11,8 @@ export function useMenuData() {
     categories: null,
     about: null,
     events: null,
+    home: null,
+    contacts: null,
   })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")

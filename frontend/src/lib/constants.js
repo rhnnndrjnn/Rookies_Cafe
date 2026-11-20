@@ -574,3 +574,98 @@ export const resolveEvents = (saved) => {
   e.extraClassic = num(s.extraClassic, DEFAULT_EVENTS.extraClassic)
   return e
 }
+
+/* ------------------------------------------------------------------ */
+/* Home page — default content (the owner can edit all of it)          */
+/* ------------------------------------------------------------------ */
+export const DEFAULT_HOME = {
+  eyebrow: BUSINESS.name,
+  headline1: "Good coffee.",
+  headline2: "Great", // shown in italics
+  headline3: "moments.",
+  intro:
+    "Espresso favorites, matcha, and non-coffee treats—freshly brewed, freshly made, and made for every coffee craving.",
+  primaryButton: "Order from the menu",
+  secondaryButton: "Our story",
+  stripLeft: "Open daily",
+  stripRight: "Freshly brewed · Freshly made",
+  heroImage: SB + "spes.jpg",
+  heroAlt: "Fresh latte and pastry served at a warm café table",
+  heroBadge: "New flavor",
+  heroProduct: "Rookies Special",
+  favEyebrow: "Fresh on the menu",
+  favTitle: "Our favorites",
+  favorites: ["Rookies Special", "Sea Salt Latte", "Matcha Latte", "Salted Caramel"],
+  favButton: "View full menu",
+  eventEyebrow: "Mobile coffee cart",
+  eventTitle1: "Bring the cafe",
+  eventTitle2: "to your event.", // shown in italics
+  eventText:
+    "Weddings, birthdays, debuts, and corporate events—our barista and assistant serve freshly prepared drinks from a mobile coffee cart.",
+  showPackagePrice: true, // adds "Packages start at ₱X for N guests."
+  eventLink: "See event packages",
+}
+/** Saved Home content merged over the defaults, so a missing field never breaks the page. */
+export const resolveHome = (saved) => {
+  const s = saved || {}
+  const h = { ...DEFAULT_HOME, ...s }
+  h.favorites = cleanList(s.favorites, DEFAULT_HOME.favorites)
+  if (!h.favorites.length) h.favorites = DEFAULT_HOME.favorites
+  h.showPackagePrice = s.showPackagePrice !== false
+  return h
+}
+
+/* ------------------------------------------------------------------ */
+/* Contacts page — default content (the owner can edit all of it)      */
+/* ------------------------------------------------------------------ */
+const DEFAULT_ADDRESS = BUSINESS.address || "Teresa, Rizal, Philippines"
+export const DEFAULT_CONTACTS = {
+  eyebrow: "Visit or write to us",
+  title: "Contacts",
+  panelEyebrow: "Rookies Cafe",
+  headline1: "Come find your",
+  headline2: "usual corner.", // shown in italics
+  intro:
+    "Whether it’s a quick pickup, a cozy afternoon, or a coffee cart for your next event, we’re ready to welcome you.",
+  addressLabel: "Physical address",
+  address: DEFAULT_ADDRESS,
+  mapLinkText: "Open in Google Maps",
+  phone: "", // phone, email and hours only show once filled in
+  email: "",
+  hours: "",
+  mapQuery: "", // blank = use the address (or the cafe's name if the address is unchanged)
+  directionsText: "Get directions",
+  socialsTitle: "Find us online",
+  socials: BUSINESS.socials,
+  formEyebrow: "Support & inquiries",
+  formTitle: "Message Us",
+  formIntro:
+    "Questions, feedback, or event coffee cart bookings? Send it our way, or find us on social media.",
+  sendButton: "Send message",
+}
+const withProtocol = (u) => {
+  const url = String(u || "").trim()
+  return !url || /^https?:\/\//i.test(url) ? url : `https://${url}`
+}
+/** Saved Contacts content merged over the defaults, so a missing field never breaks the page. */
+export const resolveContacts = (saved) => {
+  const s = saved || {}
+  const c = { ...DEFAULT_CONTACTS, ...s }
+  c.socials = Array.isArray(s.socials)
+    ? s.socials
+        .filter((x) => x && String(x.label || "").trim() && String(x.url || "").trim())
+        .map((x) => ({
+          label: String(x.label).trim(),
+          handle: String(x.handle || "").trim(),
+          url: withProtocol(x.url),
+        }))
+    : DEFAULT_CONTACTS.socials
+  return c
+}
+/** What Google Maps searches for: the owner's map search, else a changed address, else the default. */
+export const contactsMapQuery = (c) => {
+  const q = String(c?.mapQuery || "").trim()
+  if (q) return q
+  const a = String(c?.address || "").trim()
+  return a && a !== DEFAULT_ADDRESS ? a : BUSINESS.mapQuery
+}

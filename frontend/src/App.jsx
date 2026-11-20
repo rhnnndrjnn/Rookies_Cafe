@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react"
 import { NotifyProvider, useNotify } from "./lib/notify.jsx"
 import { useCart } from "./lib/cart.js"
 import { useMenuData, useMyOrders } from "./lib/hooks.js"
-import { resolveCategories } from "./lib/constants.js"
+import { resolveCategories, resolveContacts } from "./lib/constants.js"
 import Splash from "./components/Splash.jsx"
 import ProductModal from "./components/ProductModal.jsx"
 import { CorporateFooter, Navbar, StatusBanner, navItems } from "./components/Shell.jsx"
@@ -55,7 +55,7 @@ function CustomerSite({ route, navigate }) {
   }
 
   const pages = {
-    "/": <HomePage navigate={navigate} products={menu.products} openProduct={openProduct} events={menu.settings.events} />,
+    "/": <HomePage navigate={navigate} products={menu.products} openProduct={openProduct} events={menu.settings.events} content={menu.settings.home} contacts={menu.settings.contacts} />,
     "/about": <AboutPage navigate={navigate} content={menu.settings.about} />,
     "/menu": (
       <MenuPage
@@ -69,7 +69,7 @@ function CustomerSite({ route, navigate }) {
       />
     ),
     "/orders": <OrdersPage navigate={navigate} myOrders={myOrders} />,
-    "/contacts": <ContactsPage />,
+    "/contacts": <ContactsPage content={menu.settings.contacts} />,
     "/packages": <PackagesPage navigate={navigate} content={menu.settings.events} />,
     "/book": <BookPage navigate={navigate} content={menu.settings.events} />,
     "/cart": (
@@ -104,7 +104,7 @@ function CustomerSite({ route, navigate }) {
         products={menu.products}
       />
       <div className="pt-[102px] lg:pt-[151px]">{pages[route]}</div>
-      <CorporateFooter />
+      <CorporateFooter socials={resolveContacts(menu.settings.contacts).socials} />
       {modal && (
         <ProductModal
           key={modal.line?.id || modal.product.id}

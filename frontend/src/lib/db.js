@@ -186,6 +186,8 @@ export async function getSettings() {
     categories: null, // owner's category list (null = defaults)
     about: null, // owner's About-page content (null = defaults)
     events: null, // owner's Events-page content (null = defaults)
+    home: null, // owner's Home-page content (null = defaults)
+    contacts: null, // owner's Contacts-page content (null = defaults)
   }
   rows.forEach((r) => (out[r.key] = r.value))
   return out

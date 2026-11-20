@@ -262,7 +262,7 @@ export function Navbar({ route, navigate, cartCount, query, setQuery, products }
   )
 }
 
-export function CorporateFooter() {
+export function CorporateFooter({ socials = BUSINESS.socials }) {
   return (
     <footer className="border-t border-earth-600/30 bg-earth-950 px-6 py-14 text-earth-300 sm:px-10 lg:px-12">
       <div className="mx-auto flex max-w-[900px] flex-col items-center text-center">
@@ -274,9 +274,9 @@ export function CorporateFooter() {
           specials.
         </p>
         <div className="mt-7 flex flex-wrap items-center justify-center gap-x-7 gap-y-3 text-xs">
-          {BUSINESS.socials.map((s) => (
+          {socials.map((s) => (
             <a key={s.label} href={s.url} target="_blank" rel="noreferrer" className="footer-link">
-              {s.label}: {s.handle}
+              {s.label}{s.handle ? `: ${s.handle}` : ""}
             </a>
           ))}
         </div>

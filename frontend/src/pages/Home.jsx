@@ -1,13 +1,25 @@
 import { useRef } from "react"
 import { Icon, PageLink } from "../components/ui.jsx"
-import { BUSINESS, image, mapDirectionsUrl, mapEmbedUrl, pesoWhole, resolveEvents } from "../lib/constants.js"
+import {
+  contactsMapQuery,
+  mapDirectionsUrl,
+  mapEmbedUrl,
+  pesoWhole,
+  resolveContacts,
+  resolveEvents,
+  resolveHome,
+} from "../lib/constants.js"
 
-export default function HomePage({ navigate, products, openProduct, events }) {
+// The layout is fixed; every text, picture and favorite comes from the owner's Home-page settings
+// (Owner dashboard → Home page). The map follows the address set under Contacts page.
+export default function HomePage({ navigate, products, openProduct, events, content, contacts }) {
+  const h = resolveHome(content)
+  const c = resolveContacts(contacts)
+  const mapQuery = contactsMapQuery(c)
   const startPkg = resolveEvents(events).packages[0]
   const carouselRef = useRef(null)
-  const FAVORITES = ["Rookies Special", "Sea Salt Latte", "Matcha Latte", "Salted Caramel"]
-  const featured = FAVORITES.map((n) => products.find((p) => p.name === n && p.available)).filter(Boolean)
-  const hero = products.find((p) => p.name === "Rookies Special") || featured[0]
+  const featured = h.favorites.map((n) => products.find((p) => p.name === n && p.available)).filter(Boolean)
+  const hero = products.find((p) => p.name === h.heroProduct && p.available) || featured[0]
 
   const scrollCarousel = (direction) => {
     carouselRef.current?.scrollBy({
@@ -21,63 +33,62 @@ export default function HomePage({ navigate, products, openProduct, events }) {
       <section className="home-hero grid min-h-[calc(100svh-102px)] lg:min-h-[calc(100svh-151px)] lg:grid-cols-[54%_46%]">
         <div className="flex flex-col justify-between bg-earth-100 px-6 py-12 sm:px-10 lg:px-16 lg:py-16 xl:px-20">
           <p className="eyebrow flex items-center gap-3">
-            <span className="h-px w-8 bg-earth-700" /> {BUSINESS.name}
+            <span className="h-px w-8 bg-earth-700" /> {h.eyebrow}
           </p>
           <div className="my-14 max-w-[720px]">
             <h1 className="display-title text-[clamp(4rem,8.2vw,8rem)] leading-[.84] tracking-[-.065em]">
-              Good coffee.
+              {h.headline1}
               <br />
-              <span className="italic text-earth-700">Great</span>
+              <span className="italic text-earth-700">{h.headline2}</span>
               <br />
-              moments.
+              {h.headline3}
             </h1>
-            <p className="mt-8 max-w-lg text-base leading-7 text-earth-600">
-              Espresso favorites, matcha, and non-coffee treats—freshly brewed,
-              freshly made, and made for every coffee craving.
-            </p>
+            {h.intro && <p className="mt-8 max-w-lg whitespace-pre-line text-base leading-7 text-earth-600">{h.intro}</p>}
             <div className="mt-8 flex flex-wrap gap-3">
-              <PageLink
-                to="/menu"
-                navigate={navigate}
-                className="primary-button"
-              >
-                Order from the menu <Icon name="arrow" size={17} />
-              </PageLink>
-              <PageLink
-                to="/about"
-                navigate={navigate}
-                className="secondary-button"
-              >
-                Our story
-              </PageLink>
+              {h.primaryButton && (
+                <PageLink to="/menu" navigate={navigate} className="primary-button">
+                  {h.primaryButton} <Icon name="arrow" size={17} />
+                </PageLink>
+              )}
+              {h.secondaryButton && (
+                <PageLink to="/about" navigate={navigate} className="secondary-button">
+                  {h.secondaryButton}
+                </PageLink>
+              )}
             </div>
           </div>
           <div className="flex max-w-lg items-center justify-between border-t border-earth-200 pt-5 text-[10px] uppercase tracking-[.15em] text-earth-600">
-            <span>Open daily</span>
-            <span>Freshly brewed · Freshly made</span>
+            <span>{h.stripLeft}</span>
+            <span>{h.stripRight}</span>
           </div>
         </div>
         <div className="relative h-full min-h-[580px] overflow-hidden">
-  <img
-    src="https://lugwbevxkxmkhrqzpdox.supabase.co/storage/v1/object/public/menu-images/spes.jpg"
-    alt="Fresh latte and pastry served at a warm café table"
-    className="absolute inset-0 h-full w-full object-cover object-center scale-110"
-  />
+          {h.heroImage && (
+            <img
+              src={h.heroImage}
+              alt={h.heroAlt}
+              className="absolute inset-0 h-full w-full object-cover object-center scale-110"
+            />
+          )}
           <div className="absolute inset-0 bg-gradient-to-t from-earth-950/60 via-transparent to-earth-900/10" />
           <div className="absolute bottom-7 left-7 right-7 flex items-end justify-between text-earth-50 sm:bottom-10 sm:left-10 sm:right-10">
             <div>
-              <p className="text-[9px] font-bold uppercase tracking-[.2em] text-earth-200">
-                New flavor
-              </p>
-              <p className="display-title mt-2 text-3xl">{hero?.name || "Rookies Special"}</p>
+              {h.heroBadge && (
+                <p className="text-[9px] font-bold uppercase tracking-[.2em] text-earth-200">
+                  {h.heroBadge}
+                </p>
+              )}
+              <p className="display-title mt-2 text-3xl">{hero?.name || h.heroProduct}</p>
             </div>
-            <button
-              onClick={() => hero && openProduct(hero)}
-              className="grid size-12 place-items-center rounded-full bg-earth-700 text-earth-50 shadow-lg ring-4 ring-earth-50/80 transition hover:scale-110 hover:bg-earth-600 active:scale-95"
-              aria-label={`Add ${hero?.name || "Rookies Special"} to cart`}
-            >
-              <Icon name="plus" size={22} />
-            </button>
+            {hero && (
+              <button
+                onClick={() => openProduct(hero)}
+                className="grid size-12 place-items-center rounded-full bg-earth-700 text-earth-50 shadow-lg ring-4 ring-earth-50/80 transition hover:scale-110 hover:bg-earth-600 active:scale-95"
+                aria-label={`Add ${hero.name} to cart`}
+              >
+                <Icon name="plus" size={22} />
+              </button>
+            )}
           </div>
         </div>
       </section>
@@ -86,9 +97,9 @@ export default function HomePage({ navigate, products, openProduct, events }) {
         <div className="mx-auto max-w-[1344px]">
           <div className="mb-9 flex items-end justify-between gap-5">
             <div>
-              <p className="eyebrow">Fresh on the menu</p>
+              <p className="eyebrow">{h.favEyebrow}</p>
               <h2 className="display-title mt-3 text-5xl tracking-[-.04em] sm:text-6xl">
-                Our favorites
+                {h.favTitle}
               </h2>
             </div>
             <div className="hidden gap-2 sm:flex">
@@ -142,52 +153,55 @@ export default function HomePage({ navigate, products, openProduct, events }) {
               </article>
             ))}
           </div>
-          <div className="mt-9 flex justify-center">
-            <PageLink to="/menu" navigate={navigate} className="primary-button">
-              View full menu <Icon name="arrow" size={17} />
-            </PageLink>
-          </div>
+          {h.favButton && (
+            <div className="mt-9 flex justify-center">
+              <PageLink to="/menu" navigate={navigate} className="primary-button">
+                {h.favButton} <Icon name="arrow" size={17} />
+              </PageLink>
+            </div>
+          )}
         </div>
       </section>
 
       <section className="bg-earth-100 px-5 py-20 sm:px-8 lg:px-12 lg:py-28">
         <div className="mx-auto grid max-w-[1200px] overflow-hidden rounded-[2rem] border border-earth-300 shadow-xl lg:grid-cols-2">
           <div className="flex flex-col justify-center bg-earth-900 p-8 text-earth-50 sm:p-12 lg:p-16">
-            <p className="eyebrow !text-earth-300">Mobile coffee cart</p>
+            <p className="eyebrow !text-earth-300">{h.eventEyebrow}</p>
             <h2 className="display-title mt-4 text-4xl leading-tight sm:text-5xl">
-              Bring the cafe
+              {h.eventTitle1}
               <br />
-              <span className="italic text-earth-300">to your event.</span>
+              <span className="italic text-earth-300">{h.eventTitle2}</span>
             </h2>
-            <p className="mt-6 max-w-md text-sm leading-7 text-earth-300">
-              Weddings, birthdays, debuts, and corporate events—our barista and
-              assistant serve freshly prepared drinks from a mobile coffee cart.
-              Packages start at {pesoWhole(startPkg.price)} for {startPkg.guests} guests.
+            <p className="mt-6 max-w-md whitespace-pre-line text-sm leading-7 text-earth-300">
+              {h.eventText}
+              {h.showPackagePrice && startPkg && ` Packages start at ${pesoWhole(startPkg.price)} for ${startPkg.guests} guests.`}
             </p>
-            <PageLink
-              to="/packages"
-              navigate={navigate}
-              className="mt-8 flex items-center gap-3 text-xs font-bold uppercase tracking-[.14em]"
-            >
-              See event packages <Icon name="arrow" />
-            </PageLink>
+            {h.eventLink && (
+              <PageLink
+                to="/packages"
+                navigate={navigate}
+                className="mt-8 flex items-center gap-3 text-xs font-bold uppercase tracking-[.14em]"
+              >
+                {h.eventLink} <Icon name="arrow" />
+              </PageLink>
+            )}
           </div>
           <div className="map-frame">
             <iframe
-              title="Map to Rookies Cafe Teresa Rizal"
-              src={mapEmbedUrl()}
+              title={`Map to ${h.eyebrow}`}
+              src={mapEmbedUrl(mapQuery)}
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"
               allowFullScreen
             />
             <a
-              href={mapDirectionsUrl()}
+              href={mapDirectionsUrl(mapQuery)}
               target="_blank"
               rel="noreferrer"
               className="absolute bottom-5 left-5 rounded-full bg-earth-700 px-5 py-3 text-[10px] font-bold uppercase tracking-[.13em] shadow-lg"
               style={{ color: "#F6F1EF" }}
             >
-              Get directions
+              {c.directionsText}
             </a>
           </div>
         </div>

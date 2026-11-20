@@ -29,4 +29,5 @@ Checkout copies the order text and opens Messenger. Add the Facebook page's user
 
 - `lib/db.js` – every Supabase call (and the demo-mode twin). `lib/cart.js` – browser-storage cart.
 - `pages/` – customer pages, `pages/Owner.jsx`; `components/staff/` – portal panels.
+- Editable pages: the owner changes the **Home**, **About**, **Events** and **Contacts** pages under `/owner` (saved in the `settings` table as `home`, `about`, `events`, `contacts` — no migration needed). Defaults live in `lib/constants.js` (`DEFAULT_HOME`, `DEFAULT_CONTACTS`, …); blank/missing fields fall back to them.
 - Prices: 22oz defaults to +₱20 (`SIZE_UPCHARGE`), add-ons ₱9 (`ADDON_PRICE`), add-on names per category in `lib/constants.js`.

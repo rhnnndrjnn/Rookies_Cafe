@@ -10,6 +10,8 @@ import ProductsManager from "../components/staff/Products.jsx"
 import PaymentSettings, { StoreToggle } from "../components/staff/Settings.jsx"
 import EventsPanel from "../components/staff/Events.jsx"
 import AboutEditor from "../components/staff/AboutEditor.jsx"
+import HomeEditor from "../components/staff/HomeEditor.jsx"
+import ContactsEditor from "../components/staff/ContactsEditor.jsx"
 import EventsEditor from "../components/staff/EventsEditor.jsx"
 import { PanelHeader } from "../components/staff/Shell.jsx"
 import { STATUS_LABEL, fmtDateTime, peso } from "../lib/constants.js"
@@ -66,8 +68,10 @@ function OwnerApp({ session, setSession, navigate, onLogout }) {
     { id: "events", label: "Event bookings", icon: "calendar", badge: data.bookings.filter((b) => b.status === "pending").length },
     { id: "transactions", label: "Transactions", icon: "receipt" },
     { id: "messages", label: "Messages", icon: "mail", badge: data.messages.filter((m) => !m.read).length },
+    { id: "homepage", label: "Home page", icon: "eye" },
     { id: "about", label: "About page", icon: "eye" },
     { id: "eventspage", label: "Events page", icon: "eye" },
+    { id: "contactspage", label: "Contacts page", icon: "eye" },
     { id: "payments", label: "Payment details", icon: "bag" },
     { id: "account", label: "My account", icon: "lock" },
   ]
@@ -99,8 +103,10 @@ function OwnerApp({ session, setSession, navigate, onLogout }) {
           {tab === "events" && <EventsPanel bookings={data.bookings} settings={data.settings} />}
           {tab === "transactions" && <TransactionsPanel orders={data.orders} />}
           {tab === "messages" && <MessagesPanel messages={data.messages} canDelete />}
+          {tab === "homepage" && <HomeEditor settings={data.settings} products={data.products} />}
           {tab === "about" && <AboutEditor settings={data.settings} />}
           {tab === "eventspage" && <EventsEditor settings={data.settings} />}
+          {tab === "contactspage" && <ContactsEditor settings={data.settings} />}
           {tab === "payments" && <PaymentSettings settings={data.settings} />}
           {tab === "account" && <AccountPanel session={session} onSessionChange={setSession} />}
         </>
