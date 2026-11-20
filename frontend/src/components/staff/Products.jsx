@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { FieldMessage, Icon, Input, Modal } from "../ui.jsx"
-import { DEFAULT_CATEGORY_LIST, FRIES_SHARING_DEFAULT, SIZE_UPCHARGE, isDrinkCategory, isFries, peso, resolveCategories } from "../../lib/constants.js"
+import { DEFAULT_CATEGORY_LIST, FRIES_SHARING_DEFAULT, SIZE_UPCHARGE, addonPrice, addonsFor, isDrinkCategory, isFries, peso, resolveCategories } from "../../lib/constants.js"
 import { deleteProduct, reorderProducts, saveProduct, setSetting, uploadImage } from "../../lib/db.js"
 import { useNotify } from "../../lib/notify.jsx"
 import { rules, useLiveForm } from "../../lib/validate.js"
@@ -22,6 +22,9 @@ function ProductForm({ product, categories, onClose }) {
     ...product,
     price: product?.price != null ? String(product.price) : "",
     price_22: product?.price_22 != null ? String(product.price_22) : "",
+    addons: Array.isArray(product?.addons)
+      ? product.addons.map((a) => typeof a === "string" ? { name: a, price: addonPrice(a) } : { name: a.name || "", price: Number(a.price ?? 0) })
+      : addonsFor(product || blank, categories).map((name) => ({ name, price: addonPrice(name) })),
   }))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
@@ -48,6 +51,13 @@ function ProductForm({ product, categories, onClose }) {
     form.touchAll()
     if (!form.valid) return setError("Please fix the highlighted fields first.")
     const price = Number(f.price)
+    const addons = (f.addons || [])
+      .map((a) => ({ name: String(a.name || "").trim(), price: Number(a.price) }))
+      .filter((a) => a.name)
+    if (addons.some((a) => !Number.isFinite(a.price) || a.price < 0))
+      return setError("Each add-on must have a valid price of zero or more.")
+    if (new Set(addons.map((a) => a.name.toLowerCase())).size !== addons.length)
+      return setError("Add-on names must be unique for this product.")
     const payload = {
       ...(product?.id ? { id: product.id } : {}),
       name: f.name.trim(),
@@ -62,6 +72,8 @@ function ProductForm({ product, categories, onClose }) {
       image: f.image.trim(),
       available: f.available,
       has_hot: isDrink ? !!f.has_hot : false,
+      badge: f.badge || null,
+      addons,
     }
     setBusy(true)
     try {
@@ -145,6 +157,34 @@ function ProductForm({ product, categories, onClose }) {
         </select>
         <span className="mt-1 block text-[11px] text-earth-600">Shown as a small label on the customer menu.</span>
       </label>
+      <section className="space-y-3 rounded-2xl border border-earth-200 bg-earth-100 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p className="opt-label">Product add-ons</p>
+            <p className="mt-1 text-[11px] text-earth-600">Set the add-on names and extra prices customers can choose.</p>
+          </div>
+          <button type="button" className="btn-sm" onClick={() => set("addons", [...(f.addons || []), { name: "", price: 0 }])}>
+            <Icon name="plus" size={14} /> Add add-on
+          </button>
+        </div>
+        {(f.addons || []).length === 0 && <p className="rounded-xl bg-earth-50 p-3 text-xs text-earth-600">No add-ons for this product.</p>}
+        {(f.addons || []).map((addon, index) => (
+          <div key={index} className="grid grid-cols-[minmax(0,1fr)_112px_36px] items-end gap-2">
+            <label className="min-w-0">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-earth-600">Name</span>
+              <input value={addon.name} onChange={(e) => set("addons", f.addons.map((a, i) => i === index ? { ...a, name: e.target.value } : a))} maxLength={40} placeholder="e.g. Extra cheese" className="input-box mt-1" />
+            </label>
+            <label>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-earth-600">Extra ₱</span>
+              <input type="number" min="0" step="0.01" value={addon.price} onChange={(e) => set("addons", f.addons.map((a, i) => i === index ? { ...a, price: e.target.value } : a))} className="input-box mt-1" />
+            </label>
+            <button type="button" className="btn-sm danger !h-10 !px-2" onClick={() => set("addons", f.addons.filter((_, i) => i !== index))} aria-label={`Remove add-on ${addon.name || index + 1}`}>
+              <Icon name="trash" size={14} />
+            </button>
+          </div>
+        ))}
+        <p className="text-[10px] text-earth-600">Changes are saved with this product and shown to customers after the product is saved.</p>
+      </section>
       <div>
         <span className="opt-label">Image</span>
         <div className="mt-2 flex items-center gap-3">

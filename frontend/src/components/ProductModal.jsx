@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react"
 import { Chip, Icon, Modal } from "./ui.jsx"
+import ProductSticker from "./ProductSticker.jsx"
 import {
   FRIES_FLAVORS,
   FRIES_SERVINGS,
@@ -77,6 +78,7 @@ export default function ProductModal({ product, line, categories, onClose, onSub
       {product && (
         <div>
           <div className="relative h-44 overflow-hidden rounded-t-3xl bg-earth-200">
+            <ProductSticker label={product.badge} />
             {product.image && (
               <img src={product.image} alt={product.name} className="h-full w-full object-cover" />
             )}
@@ -187,7 +189,7 @@ export default function ProductModal({ product, line, categories, onClose, onSub
                 <div className="flex flex-wrap gap-2">
                   {addonOptions.map((a) => (
                     <Chip key={a} active={addons.includes(a)} onClick={() => toggleAddon(a)}>
-                      {a} · +{peso(addonPrice(a))}
+                      {a} · +{peso(addonPrice(a, product))}
                     </Chip>
                   ))}
                 </div>

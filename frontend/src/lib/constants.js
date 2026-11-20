@@ -164,12 +164,20 @@ const DRINK_ADDONS = [
   "Sea salt cream",
 ];
 /** Add-ons offered for a product: drinks get the drink add-ons, nachos / cheesy fries get Beef · Cheese · Veggies. */
-export const addonsFor = (product, categories) =>
-  isDrinkCategory(product?.category, categories)
+export const addonsFor = (product, categories) => {
+  // A saved per-product list takes precedence. null/undefined keeps the original
+  // defaults for existing products, so the migration does not change old menus.
+  if (Array.isArray(product?.addons)) {
+    return product.addons
+      .map((addon) => (typeof addon === "string" ? addon : addon?.name))
+      .filter(Boolean);
+  }
+  return isDrinkCategory(product?.category, categories)
     ? DRINK_ADDONS
     : hasSnackAddons(product)
       ? SNACK_ADDONS
       : [];
+};
 
 // The owner only works with two states. (Older orders may still carry preparing/ready/cancelled,
 // so those labels stay for display.)
@@ -252,14 +260,23 @@ export const atCounter = (method) => !needsReceipt(method);
 export const peso = (n) => `₱${Number(n || 0).toFixed(2)}`;
 export const pesoWhole = (n) => `₱${Number(n || 0).toLocaleString("en-PH")}`;
 
-export const addonPrice = (name) => ADDON_PRICES[name] ?? ADDON_PRICE;
+export const addonPrice = (name, product) => {
+  if (Array.isArray(product?.addons)) {
+    const saved = product.addons.find((addon) =>
+      (typeof addon === "string" ? addon : addon?.name) === name,
+    );
+    if (saved && typeof saved === "object" && Number.isFinite(Number(saved.price)))
+      return Number(saved.price);
+  }
+  return ADDON_PRICES[name] ?? ADDON_PRICE;
+};
 
 export const unitPrice = (product, size, addons = []) => {
   const base =
     size === "22oz"
       ? Number(product.price_22 ?? Number(product.price) + SIZE_UPCHARGE)
       : Number(product.price);
-  return base + addons.reduce((sum, a) => sum + addonPrice(a), 0);
+  return base + addons.reduce((sum, a) => sum + addonPrice(a, product), 0);
 };
 
 export const lineSummary = (line) => {

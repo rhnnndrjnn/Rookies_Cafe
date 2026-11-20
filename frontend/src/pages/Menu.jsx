@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { Icon, Spinner } from "../components/ui.jsx"
+import ProductSticker from "../components/ProductSticker.jsx"
 import { peso } from "../lib/constants.js"
 
 export default function MenuPage({ products, categories, loading, error, query, setQuery, openProduct }) {
@@ -102,7 +103,8 @@ export default function MenuPage({ products, categories, loading, error, query, 
                     item.available ? "" : "opacity-60"
                   }`}
                 >
-                  <div className="size-[74px] shrink-0 overflow-hidden rounded-xl bg-earth-200 sm:size-24">
+                  <div className="relative size-[74px] shrink-0 overflow-hidden rounded-xl bg-earth-200 sm:size-24">
+                    <ProductSticker label={item.badge} className="right-1 top-1 px-1.5 py-0.5 text-[6px] sm:right-1 sm:top-1 sm:text-[7px]" />
                     {item.image && (
                       <img
                         src={item.image}
@@ -119,11 +121,6 @@ export default function MenuPage({ products, categories, loading, error, query, 
                     )}
                     <div className="flex min-w-0 flex-wrap items-center gap-2">
                       <h2 className="truncate text-sm font-semibold sm:text-base">{item.name}</h2>
-                      {item.badge && (
-                        <span className="shrink-0 rounded-full bg-earth-700 px-2.5 py-1 text-[8px] font-bold uppercase tracking-[.12em] text-earth-50">
-                          {item.badge}
-                        </span>
-                      )}
                     </div>
                     <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-earth-600 sm:text-xs sm:leading-5">
                       {item.detail}

@@ -1,5 +1,6 @@
 import { useRef } from "react"
 import { Icon, PageLink } from "../components/ui.jsx"
+import ProductSticker from "../components/ProductSticker.jsx"
 import {
   contactsMapQuery,
   mapDirectionsUrl,
@@ -128,7 +129,8 @@ export default function HomePage({ navigate, products, openProduct, events, cont
                 key={item.id}
                 className="group min-w-[82vw] snap-start overflow-hidden rounded-2xl border border-earth-300 bg-earth-50 shadow-md sm:min-w-[330px] lg:min-w-[calc(25%-12px)]"
               >
-                <div className="aspect-[4/3] overflow-hidden bg-earth-200">
+                <div className="relative aspect-[4/3] overflow-hidden bg-earth-200">
+                  <ProductSticker label={item.badge} />
                   <img
                     src={item.image}
                     alt={item.name}

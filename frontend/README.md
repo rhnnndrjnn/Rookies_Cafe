@@ -47,3 +47,7 @@ initialized newest-first. New or edited products move to the top automatically, 
 can drag products in Owner Dashboard → Products to save a custom order for all customers.
 
 Optional product labels: `New`, `Best Seller`, `Must Try`, and `For Sharing`.
+
+### Editable product add-ons (v9)
+
+Run `supabase/migration_v9.sql` once in the existing Supabase project's SQL Editor. This is an additive migration: it only adds the nullable `products.addons` JSONB column, validates its shape, and updates the existing product-update guard so only owners can edit add-ons. It does not reset or replace existing products, orders, bookings, settings, or profiles. Existing products with `addons = NULL` continue using the current built-in add-on defaults until the owner saves a customized add-on list.
