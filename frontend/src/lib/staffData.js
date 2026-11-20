@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import {
-  getBeans,
+  getBookings,
   getMessages,
   getNotifications,
   getOrders,
@@ -17,8 +17,12 @@ export function useStaffData() {
   const [messages, setMessages] = useState([])
   const [notifications, setNotifications] = useState([])
   const [products, setProducts] = useState([])
-  const [beans, setBeans] = useState([])
-  const [settings, setSettings] = useState({ store_open: { open: true }, gcash: { name: "", number: "", qr: "" } })
+  const [bookings, setBookings] = useState([])
+  const [settings, setSettings] = useState({
+    store_open: { open: true },
+    gcash: { name: "", number: "", qr: "" },
+    qrph: { name: "", qr: "" },
+  })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const booted = useRef(false)
@@ -30,14 +34,14 @@ export function useStaffData() {
         getMessages(),
         getNotifications(),
         getProducts(),
-        getBeans(),
+        getBookings(),
         getSettings(),
       ])
       setOrders(o)
       setMessages(m)
       setNotifications(n)
       setProducts(p)
-      setBeans(b)
+      setBookings(b)
       setSettings(s)
       setError("")
     } catch (e) {
@@ -53,16 +57,16 @@ export function useStaffData() {
     const unsubs = [
       subscribe(["orders"], async () => setOrders(await getOrders())),
       subscribe(["messages"], async () => setMessages(await getMessages())),
-      subscribe(["products", "beans", "settings"], async () => {
-        const [p, b, s] = await Promise.all([getProducts(), getBeans(), getSettings()])
+      subscribe(["bookings"], async () => setBookings(await getBookings())),
+      subscribe(["products", "settings"], async () => {
+        const [p, s] = await Promise.all([getProducts(), getSettings()])
         setProducts(p)
-        setBeans(b)
         setSettings(s)
       }),
       subscribe(["notifications"], async (ev) => {
         setNotifications(await getNotifications())
         if (ev.type === "INSERT" && booted.current && ev.row) {
-          const incoming = /^New /.test(ev.row.title)
+          const incoming = /^New /.test(ev.row.title) // new order / message / booking
           notify(ev.row.title, ev.row.body, { tone: "info", duration: 7000 })
           if (incoming) {
             chime()
@@ -74,5 +78,5 @@ export function useStaffData() {
     return () => unsubs.forEach((u) => u())
   }, [loadAll, notify])
 
-  return { orders, messages, notifications, products, beans, settings, loading, error, reload: loadAll }
+  return { orders, messages, notifications, products, bookings, settings, loading, error, reload: loadAll }
 }

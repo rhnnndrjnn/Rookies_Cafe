@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react"
 import logo from "../../assets/logo.png"
-import { Icon } from "../ui.jsx"
+import { FieldMessage, Icon, Input } from "../ui.jsx"
 import { changeCredentials, login, logout, markAllNotifications, markNotification } from "../../lib/db.js"
 import { isDemo } from "../../lib/supabase.js"
 import { timeAgo } from "../../lib/constants.js"
 import { useNotify } from "../../lib/notify.jsx"
+import { rules, useLiveForm } from "../../lib/validate.js"
 
 /* ---------------------------------------------------------------- login */
 export function LoginScreen({ role, onLoggedIn, navigate }) {
@@ -12,7 +13,7 @@ export function LoginScreen({ role, onLoggedIn, navigate }) {
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
-  const title = role === "owner" ? "Owner Dashboard" : "Employee Portal"
+  const title = "Owner Dashboard"
 
   const submit = async (e) => {
     e.preventDefault()
@@ -31,8 +32,8 @@ export function LoginScreen({ role, onLoggedIn, navigate }) {
     <main className="grid min-h-screen place-items-center bg-earth-200 px-5 py-10">
       <div className="w-full max-w-md overflow-hidden rounded-3xl border border-earth-300 bg-earth-50 shadow-2xl">
         <div className="bg-earth-900 px-8 py-8 text-earth-50">
-          <img src={logo} alt="BRWD." className="h-12 w-auto object-contain" />
-          <p className="eyebrow mt-6 !text-earth-300">BRWD. Florencia</p>
+          <img src={logo} alt="Rookies Cafe" className="h-12 w-auto object-contain" />
+          <p className="eyebrow mt-6 !text-earth-300">Rookies Cafe Teresa Rizal</p>
           <h1 className="display-title mt-1 text-3xl">{title}</h1>
         </div>
         <form onSubmit={submit} className="space-y-5 p-8">
@@ -69,7 +70,7 @@ export function LoginScreen({ role, onLoggedIn, navigate }) {
           {isDemo && (
             <p className="rounded-xl bg-earth-100 p-3 text-[11px] leading-5 text-earth-700">
               <strong>Demo mode</strong> (no Supabase keys set). Try{" "}
-              <code>{role === "owner" ? "owner / owner123" : "employee / employee123"}</code>.
+              <code>owner / owner123</code>.
             </p>
           )}
           <button
@@ -85,20 +86,15 @@ export function LoginScreen({ role, onLoggedIn, navigate }) {
   )
 }
 
-export function WrongRole({ session, role, navigate, onLogout }) {
-  const other = role === "owner" ? "employee" : "owner"
+export function WrongRole({ session, navigate, onLogout }) {
   return (
     <main className="grid min-h-screen place-items-center bg-earth-200 px-5">
       <div className="max-w-md rounded-3xl border border-earth-300 bg-earth-50 p-8 text-center shadow-xl">
-        <p className="font-semibold">
-          “{session.username}” is a{session.role === "owner" ? "n" : ""} {session.role} account.
-        </p>
-        <p className="mt-2 text-sm text-earth-600">
-          This page is for the {role === "owner" ? "owner" : "employee"} portal.
-        </p>
+        <p className="font-semibold">“{session.username}” is not an owner account.</p>
+        <p className="mt-2 text-sm text-earth-600">Only the owner can open this dashboard.</p>
         <div className="mt-6 flex flex-wrap justify-center gap-3">
-          <button className="primary-button" onClick={() => navigate("/" + other)}>
-            Open {other} portal
+          <button className="primary-button" onClick={() => navigate("/")}>
+            Back to the site
           </button>
           <button className="secondary-button" onClick={onLogout}>
             Sign out
@@ -128,10 +124,10 @@ export function NotificationBell({ notifications, navigate }) {
   }
 
   return (
-    <div className="relative" ref={ref}>
+    <div className="sm:relative" ref={ref}>
       <button
         onClick={() => setOpen(!open)}
-        className="relative grid size-10 place-items-center rounded-full border border-earth-300 transition hover:bg-earth-100"
+        className="relative grid size-9 shrink-0 place-items-center sm:size-10 rounded-full border border-earth-300 transition hover:bg-earth-100"
         aria-label={`Notifications (${unread} unread)`}
       >
         <Icon name="bell" size={18} />
@@ -142,7 +138,7 @@ export function NotificationBell({ notifications, navigate }) {
         )}
       </button>
       {open && (
-        <div className="absolute right-0 top-12 z-50 w-[min(92vw,380px)] rounded-2xl border border-earth-300 bg-earth-50 shadow-[0_18px_50px_rgba(32,24,19,.2)]">
+        <div className="fixed inset-x-3 top-16 z-50 sm:absolute sm:inset-x-auto sm:right-0 sm:top-12 sm:w-[380px] rounded-2xl border border-earth-300 bg-earth-50 shadow-[0_18px_50px_rgba(32,24,19,.2)]">
           <div className="flex items-center justify-between border-b border-earth-200 px-4 py-3">
             <p className="text-sm font-semibold">Notifications</p>
             <button
@@ -194,36 +190,36 @@ export function NotificationBell({ notifications, navigate }) {
 
 /* ------------------------------------------------------------------ layout */
 export function StaffLayout({ role, session, tabs, tab, setTab, onLogout, navigate, children, right }) {
-  const label = role === "owner" ? "Owner Dashboard" : "Employee Portal"
+  const label = "Owner Dashboard"
   return (
-    <div className="min-h-screen bg-earth-100">
+    <div className="min-h-screen min-h-[100dvh] overflow-x-hidden bg-earth-100">
       <header className="sticky top-0 z-40 border-b border-earth-300 bg-earth-50">
-        <div className="mx-auto flex h-16 max-w-[1400px] items-center justify-between gap-3 px-4 sm:px-8">
+        <div className="mx-auto flex min-h-14 max-w-[1600px] items-center justify-between gap-2 px-3 py-2 sm:min-h-16 sm:gap-3 sm:px-8">
           <div className="flex min-w-0 items-center gap-3">
-            <img src={logo} alt="BRWD." className="h-10 w-auto object-contain" />
+            <img src={logo} alt="Rookies Cafe" className="h-8 w-auto shrink-0 object-contain sm:h-10" />
             <div className="hidden min-w-0 sm:block">
               <p className="text-[9px] font-bold uppercase tracking-[.2em] text-earth-600">{label}</p>
               <p className="truncate text-sm font-semibold">Hi, {session.username}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 shrink-0 items-center gap-1.5 sm:gap-2">
             {right}
-            <button onClick={() => navigate("/")} className="btn-sm hidden md:inline-flex">
+            <button onClick={() => navigate("/")} className="btn-sm hidden md:inline-flex whitespace-nowrap">
               Customer site
             </button>
-            <button onClick={onLogout} className="btn-sm">
+            <button onClick={onLogout} className="btn-sm !px-2.5 sm:!px-4" aria-label="Sign out">
               <Icon name="logout" size={14} /> <span className="hidden sm:inline">Sign out</span>
             </button>
           </div>
         </div>
       </header>
-      <div className="mx-auto grid max-w-[1400px] gap-5 px-4 py-5 sm:px-8 lg:grid-cols-[220px_1fr] lg:gap-8 lg:py-8">
-        <nav className="no-scrollbar flex gap-1 overflow-x-auto lg:sticky lg:top-[88px] lg:h-fit lg:flex-col lg:overflow-visible" aria-label={`${label} sections`}>
+      <div className="mx-auto grid max-w-[1600px] gap-3 px-3 py-3 sm:gap-5 sm:px-8 sm:py-5 lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-8 lg:py-8 2xl:grid-cols-[240px_minmax(0,1fr)]">
+        <nav className="no-scrollbar sticky top-[56px] z-30 -mx-3 flex gap-1 overflow-x-auto border-b border-earth-300 bg-earth-100/95 px-3 py-2 backdrop-blur sm:top-16 sm:-mx-8 sm:px-8 lg:sticky lg:top-[88px] lg:mx-0 lg:h-fit lg:flex-col lg:overflow-visible lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none" aria-label={`${label} sections`}>
           {tabs.map((t) => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`staff-tab shrink-0 lg:shrink ${tab === t.id ? "active" : ""}`}
+              className={`staff-tab !w-auto shrink-0 lg:!w-full lg:shrink ${tab === t.id ? "active" : ""}`}
               style={tab === t.id ? { color: "#F6F1EF" } : undefined}
             >
               <Icon name={t.icon} size={17} />
@@ -236,7 +232,7 @@ export function StaffLayout({ role, session, tabs, tab, setTab, onLogout, naviga
             </button>
           ))}
         </nav>
-        <div className="min-w-0">{children}</div>
+        <div className="min-w-0 pb-8">{children}</div>
       </div>
     </div>
   )
@@ -247,7 +243,7 @@ export function PanelHeader({ eyebrow, title, children }) {
     <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
       <div>
         {eyebrow && <p className="eyebrow">{eyebrow}</p>}
-        <h2 className="display-title mt-1 text-3xl tracking-[-.03em] sm:text-4xl">{title}</h2>
+        <h2 className="display-title mt-1 text-2xl tracking-[-.03em] sm:text-4xl">{title}</h2>
       </div>
       <div className="flex flex-wrap items-center gap-2">{children}</div>
     </div>
@@ -269,6 +265,13 @@ export function Switch({ on, onChange, label, disabled }) {
 }
 
 /* ------------------------------------------------------------ credentials */
+const ACCOUNT_RULES = {
+  username: rules.username,
+  next: (v) => rules.newPassword(v),
+  confirm: (v, all) => (all.next && v !== all.next ? "Passwords don’t match yet." : ""),
+  current: (v) => (v ? "" : "Enter your current password to save."),
+}
+
 export function AccountPanel({ session, onSessionChange }) {
   const notify = useNotify()
   const [username, setUsername] = useState(session.username)
@@ -277,10 +280,13 @@ export function AccountPanel({ session, onSessionChange }) {
   const [confirm, setConfirm] = useState("")
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
+  const f = useLiveForm({ username, next, confirm, current }, ACCOUNT_RULES)
 
   const submit = async (e) => {
     e.preventDefault()
     setError("")
+    f.touchAll()
+    if (!f.valid) return setError("Please fix the highlighted fields first.")
     if (next && next !== confirm) return setError("New password and confirmation don't match.")
     if (username.trim().toLowerCase() === session.username && !next)
       return setError("Change your username or enter a new password first.")
@@ -306,24 +312,28 @@ export function AccountPanel({ session, onSessionChange }) {
   return (
     <div>
       <PanelHeader eyebrow="Security" title="Your credentials" />
-      <form onSubmit={submit} className="max-w-lg space-y-5 rounded-2xl border border-earth-300 bg-earth-50 p-6 shadow-sm sm:p-8">
+      <form onSubmit={submit} noValidate className="max-w-lg space-y-5 rounded-2xl border border-earth-300 bg-earth-50 p-6 shadow-sm sm:p-8">
         <label className="block">
           <span className="opt-label">Username</span>
-          <input required value={username} onChange={(e) => setUsername(e.target.value)} className="input-box mt-2" autoComplete="username" />
+          <Input value={username} onValue={setUsername} onBlur={() => f.blur("username")} error={f.shown("username")} className="input-box mt-2" autoComplete="username" />
+          <FieldMessage error={f.shown("username")} />
         </label>
         <label className="block">
           <span className="opt-label">New password (leave blank to keep)</span>
-          <input type="password" value={next} onChange={(e) => setNext(e.target.value)} className="input-box mt-2" autoComplete="new-password" />
+          <Input type="password" value={next} onValue={setNext} onBlur={() => f.blur("next")} error={f.shown("next")} className="input-box mt-2" autoComplete="new-password" />
+          <FieldMessage error={f.shown("next")} />
         </label>
         {next && (
           <label className="block">
             <span className="opt-label">Confirm new password</span>
-            <input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} className="input-box mt-2" autoComplete="new-password" />
+            <Input type="password" value={confirm} onValue={setConfirm} onBlur={() => f.blur("confirm")} error={f.shown("confirm")} className="input-box mt-2" autoComplete="new-password" />
+            <FieldMessage error={f.shown("confirm")} />
           </label>
         )}
         <label className="block border-t border-earth-200 pt-5">
           <span className="opt-label">Current password (required to save)</span>
-          <input required type="password" value={current} onChange={(e) => setCurrent(e.target.value)} className="input-box mt-2" autoComplete="current-password" />
+          <Input type="password" value={current} onValue={setCurrent} onBlur={() => f.blur("current")} error={f.shown("current")} className="input-box mt-2" autoComplete="current-password" />
+          <FieldMessage error={f.shown("current")} />
         </label>
         {error && <p role="alert" className="rounded-xl bg-[#F3DEDB] p-3 text-xs text-[#8F3B31]">{error}</p>}
         <button disabled={busy} className="primary-button disabled:opacity-60">

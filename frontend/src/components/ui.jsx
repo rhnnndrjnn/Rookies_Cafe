@@ -1,4 +1,5 @@
 import { useEffect } from "react"
+import { SANITIZERS } from "../lib/validate.js"
 
 export function Icon({ name, size = 20 }) {
   const paths = {
@@ -123,6 +124,53 @@ export function Icon({ name, size = 20 }) {
         <circle cx="12" cy="12" r="2.8" />
       </>
     ),
+    calendar: (
+      <>
+        <rect x="3.5" y="5" width="17" height="15" rx="2" />
+        <path d="M3.5 10h17M8 3v4M16 3v4" />
+      </>
+    ),
+    card: (
+      <>
+        <rect x="3" y="5.5" width="18" height="13" rx="2" />
+        <path d="M3 10h18M7 15h3" />
+      </>
+    ),
+    qr: (
+      <>
+        <rect x="4" y="4" width="6" height="6" rx="1" />
+        <rect x="14" y="4" width="6" height="6" rx="1" />
+        <rect x="4" y="14" width="6" height="6" rx="1" />
+        <path d="M14 14h2v2h-2zM18 14h2M14 18h2v2M18 18v2h2" />
+      </>
+    ),
+    cash: (
+      <>
+        <rect x="3" y="7" width="18" height="10" rx="2" />
+        <circle cx="12" cy="12" r="2.4" />
+      </>
+    ),
+    copy: (
+      <>
+        <rect x="9" y="9" width="11" height="11" rx="2" />
+        <path d="M5 15V6a2 2 0 0 1 2-2h9" />
+      </>
+    ),
+    download: (
+      <>
+        <path d="M12 4v11" />
+        <path d="m7.5 10.5 4.5 4.5 4.5-4.5" />
+        <path d="M5 20h14" />
+      </>
+    ),
+    messenger: (
+      <>
+        <path d="M12 3.5c-4.7 0-8.5 3.5-8.5 7.9 0 2.4 1.1 4.5 2.9 5.9V21l2.9-1.6c.9.3 1.8.4 2.7.4 4.7 0 8.5-3.5 8.5-7.9S16.7 3.5 12 3.5Z" />
+        <path d="m7.5 13.5 3.2-3.4 2.3 2.2 3.5-2.2-3.3 3.7-2.3-2.2-3.4 1.9Z" />
+      </>
+    ),
+    chevronLeft: <path d="m15 6-6 6 6 6" />,
+    chevronRight: <path d="m9 6 6 6-6 6" />,
     cup: (
       <>
         <path d="M5 8h12v6a5 5 0 0 1-5 5h-2a5 5 0 0 1-5-5V8Z" />
@@ -217,5 +265,59 @@ export function Spinner() {
     <div className="grid place-items-center py-20">
       <span className="size-7 animate-spin rounded-full border-2 border-earth-300 border-t-earth-700" />
     </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* Form inputs with live validation                                    */
+/* ------------------------------------------------------------------ */
+
+/** Inline error (red) or hint (muted) under a field. Always announced to screen readers. */
+export function FieldMessage({ error, hint, id }) {
+  if (error)
+    return (
+      <p id={id} role="alert" className="field-error">
+        <span aria-hidden="true">!</span> {error}
+      </p>
+    )
+  if (hint)
+    return (
+      <p id={id} className="field-hint">
+        {hint}
+      </p>
+    )
+  return null
+}
+
+/**
+ * <Input kind="phone" | "digits" | "decimal" value onValue={(clean) => …} error={…} />
+ *
+ * `kind` makes the field NUMERIC-ONLY: letters/symbols are blocked as you type and
+ * stripped from anything pasted. `onValue` always receives the cleaned string.
+ * Without `kind` it behaves like a normal text input.
+ */
+export function Input({ kind, onValue, onBlur, error, className = "input-box", ...props }) {
+  const clean = kind ? SANITIZERS[kind] : (v) => v
+
+  const onKeyDown = (e) => {
+    props.onKeyDown?.(e)
+    if (!kind || e.defaultPrevented) return
+    // printable single characters only — leave Backspace, arrows, Ctrl/⌘ shortcuts alone
+    if (e.key.length !== 1 || e.ctrlKey || e.metaKey || e.altKey) return
+    const allowed = kind === "decimal" ? /[0-9.]/ : /[0-9]/
+    if (!allowed.test(e.key)) e.preventDefault()
+  }
+
+  return (
+    <input
+      {...props}
+      onKeyDown={onKeyDown}
+      onChange={(e) => onValue?.(clean(e.target.value))}
+      onBlur={onBlur}
+      inputMode={kind === "decimal" ? "decimal" : kind ? "numeric" : props.inputMode}
+      autoComplete={kind === "phone" ? "tel-national" : props.autoComplete}
+      aria-invalid={error ? "true" : undefined}
+      className={`${className} ${error ? "input-error" : ""}`}
+    />
   )
 }

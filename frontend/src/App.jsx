@@ -9,14 +9,15 @@ import HomePage from "./pages/Home.jsx"
 import AboutPage from "./pages/About.jsx"
 import MenuPage from "./pages/Menu.jsx"
 import ContactsPage from "./pages/Contacts.jsx"
+import PackagesPage from "./pages/Packages.jsx"
+import BookPage from "./pages/Book.jsx"
 import CartPage from "./pages/Cart.jsx"
 import CheckoutPage from "./pages/Checkout.jsx"
 import OrdersPage from "./pages/Orders.jsx"
-import EmployeePortal from "./pages/Employee.jsx"
 import OwnerPortal from "./pages/Owner.jsx"
 
-const customerPaths = [...navItems.map((i) => i.path), "/cart", "/checkout"]
-const staffPaths = ["/employee", "/owner"]
+const customerPaths = [...navItems.map((i) => i.path), "/packages", "/book", "/cart", "/checkout"]
+const staffPaths = ["/owner"]
 
 const getRoute = () => {
   const path = window.location.pathname.replace(/\/+$/, "") || "/"
@@ -66,12 +67,13 @@ function CustomerSite({ route, navigate }) {
     ),
     "/orders": <OrdersPage navigate={navigate} myOrders={myOrders} />,
     "/contacts": <ContactsPage />,
+    "/packages": <PackagesPage navigate={navigate} />,
+    "/book": <BookPage navigate={navigate} />,
     "/cart": (
       <CartPage
         cart={cart}
         navigate={navigate}
         products={menu.products}
-        beans={menu.beans}
         onEdit={editLine}
         storeOpen={storeOpen}
       />
@@ -81,7 +83,6 @@ function CustomerSite({ route, navigate }) {
         cart={cart}
         navigate={navigate}
         products={menu.products}
-        beans={menu.beans}
         settings={menu.settings}
         storeOpen={storeOpen}
       />
@@ -106,8 +107,7 @@ function CustomerSite({ route, navigate }) {
           key={modal.line?.id || modal.product.id}
           product={modal.product}
           line={modal.line}
-          beans={menu.beans}
-          onClose={() => setModal(null)}
+            onClose={() => setModal(null)}
           onSubmit={submitModal}
         />
       )}
@@ -136,9 +136,7 @@ function Root() {
 
   return (
     <>
-      {route === "/employee" ? (
-        <EmployeePortal navigate={navigate} />
-      ) : route === "/owner" ? (
+      {route === "/owner" ? (
         <OwnerPortal navigate={navigate} />
       ) : (
         <CustomerSite route={route} navigate={navigate} />

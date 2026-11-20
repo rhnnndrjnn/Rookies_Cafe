@@ -1,0 +1,19 @@
+# Environment variables and secrets
+
+.env
+.env.\*
+!.env.example
+
+# Dependencies and build artifacts
+
+node_modules
+.next
+dist
+build
+
+# Git and editor files
+
+.git
+.vscode
+.idea
+.DS_Store

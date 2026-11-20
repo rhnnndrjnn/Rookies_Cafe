@@ -1,16 +1,15 @@
 import { useMemo, useState } from "react"
 import { Icon, Modal } from "../ui.jsx"
-import { PAYMENT_LABEL, STATUS_LABEL, fmtDateTime, lineSummary, peso } from "../../lib/constants.js"
+import { METHOD_LABEL, ORDER_TYPE_LABEL, PAYMENT_LABEL, STATUS_LABEL, fmtDateTime, lineSummary, needsReceipt, peso } from "../../lib/constants.js"
 import { updateOrder } from "../../lib/db.js"
 import { useNotify } from "../../lib/notify.jsx"
 import { PanelHeader } from "./Shell.jsx"
 
+// Legacy statuses (preparing / ready) count as pending.
+const isPending = (o) => !["completed", "cancelled"].includes(o.status)
 const FILTERS = [
-  { id: "active", label: "Active", test: (o) => ["pending", "preparing", "ready"].includes(o.status) },
-  { id: "pending", label: "Pending", test: (o) => o.status === "pending" },
-  { id: "preparing", label: "Preparing", test: (o) => o.status === "preparing" },
-  { id: "ready", label: "Ready", test: (o) => o.status === "ready" },
-  { id: "done", label: "Completed / cancelled", test: (o) => ["completed", "cancelled"].includes(o.status) },
+  { id: "pending", label: "Pending", test: isPending },
+  { id: "completed", label: "Completed", test: (o) => o.status === "completed" },
   { id: "all", label: "All", test: () => true },
 ]
 
@@ -22,18 +21,17 @@ export function OrderStats({ orders }) {
     .filter((o) => o.status === "completed")
     .reduce((n, o) => n + Number(o.total), 0)
   const cards = [
-    { label: "Pending", value: orders.filter((o) => o.status === "pending").length },
-    { label: "Preparing", value: orders.filter((o) => o.status === "preparing").length },
-    { label: "Ready for pickup", value: orders.filter((o) => o.status === "ready").length },
+    { label: "Pending", value: orders.filter(isPending).length },
+    { label: "Completed", value: orders.filter((o) => o.status === "completed").length },
     { label: "Orders today", value: today.length },
     { label: "Sales today", value: peso(sales) },
   ]
   return (
-    <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+    <div className="mb-5 grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
       {cards.map((c) => (
-        <div key={c.label} className="rounded-2xl border border-earth-300 bg-earth-50 p-4 shadow-sm">
+        <div key={c.label} className="min-w-0 rounded-2xl border border-earth-300 bg-earth-50 p-3 shadow-sm sm:p-4">
           <p className="text-[10px] font-bold uppercase tracking-[.14em] text-earth-600">{c.label}</p>
-          <p className="display-title mt-2 text-2xl sm:text-3xl">{c.value}</p>
+          <p className="display-title mt-2 truncate text-xl sm:text-3xl">{c.value}</p>
         </div>
       ))}
     </div>
@@ -42,15 +40,15 @@ export function OrderStats({ orders }) {
 
 export default function OrdersPanel({ orders, storeOpen }) {
   const notify = useNotify()
-  const [filter, setFilter] = useState("active")
+  const [filter, setFilter] = useState("pending")
   const [receipt, setReceipt] = useState(null)
   const [busyId, setBusyId] = useState(null)
   const test = FILTERS.find((f) => f.id === filter).test
 
   const list = useMemo(() => {
     const rows = orders.filter(test)
-    // soonest pickup first for active orders, newest first otherwise
-    return filter === "active"
+    // soonest arrival first for pending orders, newest first otherwise
+    return filter === "pending"
       ? [...rows].sort((a, b) => new Date(a.arrival_time) - new Date(b.arrival_time))
       : rows
   }, [orders, filter]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -64,21 +62,6 @@ export default function OrdersPanel({ orders, storeOpen }) {
     } finally {
       setBusyId(null)
     }
-  }
-
-  const nextStep = (o) => {
-    const gcashUnpaid = o.payment_method === "gcash" && o.payment_status !== "paid"
-    if (o.status === "pending")
-      return { label: "Start preparing", patch: { status: "preparing" }, text: "now preparing", disabled: gcashUnpaid, hint: gcashUnpaid ? "Verify the GCash receipt first" : "" }
-    if (o.status === "preparing")
-      return { label: "Mark ready", patch: { status: "ready" }, text: "ready for pickup" }
-    if (o.status === "ready")
-      return {
-        label: "Complete",
-        patch: { status: "completed", payment_status: "paid" },
-        text: "completed",
-      }
-    return null
   }
 
   return (
@@ -101,29 +84,28 @@ export default function OrdersPanel({ orders, storeOpen }) {
           No orders here right now.
         </p>
       ) : (
-        <div className="grid gap-4 xl:grid-cols-2">
+        <div className="grid gap-3 sm:gap-4 xl:grid-cols-2">
           {list.map((o) => {
-            const step = nextStep(o)
             const busy = busyId === o.id
             return (
-              <article key={o.id} className="rounded-2xl border border-earth-300 bg-earth-50 p-5 shadow-sm">
+              <article key={o.id} className="min-w-0 rounded-2xl border border-earth-300 bg-earth-50 p-4 shadow-sm sm:p-5">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
                     <p className="display-title text-xl">{o.code}</p>
                     <p className="text-sm font-semibold">
                       {o.customer_name}
-                      {o.phone && <span className="ml-2 font-normal text-earth-600">{o.phone}</span>}
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
-                    <span className={`badge ${o.status}`}>{STATUS_LABEL[o.status]}</span>
+                    <span className="badge">{ORDER_TYPE_LABEL[o.order_type] || "Pick up"}</span>
+                    <span className={`badge ${isPending(o) ? "pending" : o.status}`}>{isPending(o) ? "Pending" : STATUS_LABEL[o.status]}</span>
                     <span className={`badge ${o.payment_status}`}>
-                      {o.payment_method === "gcash" ? "GCash" : "Cash"} · {PAYMENT_LABEL[o.payment_status]}
+                      {METHOD_LABEL[o.payment_method] || o.payment_method} · {PAYMENT_LABEL[o.payment_status]}
                     </span>
                   </div>
                 </div>
                 <p className="mt-2 flex items-center gap-1.5 text-xs text-earth-600">
-                  <Icon name="clock" size={14} /> Arrives {fmtDateTime(o.arrival_time)} · placed {fmtDateTime(o.created_at)}
+                  <Icon name="clock" size={14} /> {o.order_type === "delivery" ? "Deliver" : "Arrives"} {fmtDateTime(o.arrival_time)} · placed {fmtDateTime(o.created_at)}
                 </p>
                 <ul className="mt-3 divide-y divide-earth-200 text-sm">
                   {o.items.map((l, i) => (
@@ -136,6 +118,11 @@ export default function OrdersPanel({ orders, storeOpen }) {
                     </li>
                   ))}
                 </ul>
+                {o.order_type === "delivery" && o.delivery_address && (
+                  <p className="mt-2 flex gap-1.5 rounded-lg bg-earth-100 p-2.5 text-xs text-earth-700">
+                    <Icon name="pin" size={14} /> <span className="min-w-0 break-words"><strong>Deliver to:</strong> {o.delivery_address}</span>
+                  </p>
+                )}
                 {o.note && (
                   <p className="mt-2 rounded-lg bg-earth-100 p-2.5 text-xs text-earth-700">
                     <strong>Note:</strong> {o.note}
@@ -146,46 +133,30 @@ export default function OrdersPanel({ orders, storeOpen }) {
                   <span>{peso(o.total)}</span>
                 </p>
 
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {o.payment_method === "gcash" && o.receipt_url && (
+                <div className="mt-4 grid grid-cols-1 gap-2 min-[420px]:flex min-[420px]:flex-wrap">
+                  {o.receipt_url && (
                     <button className="btn-sm" onClick={() => setReceipt(o)}>
                       <Icon name="receipt" size={14} /> View receipt
                     </button>
                   )}
-                  {o.payment_method === "gcash" && o.payment_status !== "paid" && o.status !== "cancelled" && (
-                    <>
-                      <button disabled={busy} className="btn-sm solid" onClick={() => act(o, { payment_status: "paid" }, "GCash payment verified")}>
-                        <Icon name="check" size={14} /> Mark paid
-                      </button>
-                      {o.payment_status !== "rejected" && (
-                        <button disabled={busy} className="btn-sm danger" onClick={() => act(o, { payment_status: "rejected" }, "GCash receipt rejected")}>
-                          Reject receipt
-                        </button>
-                      )}
-                    </>
-                  )}
-                  {o.payment_method === "cash" && o.payment_status !== "paid" && ["preparing", "ready"].includes(o.status) && (
-                    <button disabled={busy} className="btn-sm" onClick={() => act(o, { payment_status: "paid" }, "cash received")}>
-                      Mark cash received
+                  {isPending(o) && o.payment_status !== "paid" && (
+                    <button disabled={busy} className="btn-sm" onClick={() => act(o, { payment_status: "paid" }, `${METHOD_LABEL[o.payment_method]} payment received`)}>
+                      <Icon name="check" size={14} /> Mark paid
                     </button>
                   )}
-                  {step && (
-                    <button disabled={busy || step.disabled} title={step.hint} className="btn-sm solid" onClick={() => act(o, step.patch, step.text)}>
-                      {step.label}
+                  {isPending(o) && (
+                    <button disabled={busy} className="btn-sm solid" onClick={() => act(o, { status: "completed", payment_status: "paid" }, "completed")}>
+                      Mark completed
                     </button>
                   )}
-                  {["pending", "preparing", "ready"].includes(o.status) && (
-                    <button
-                      disabled={busy}
-                      className="btn-sm danger"
-                      onClick={() => window.confirm(`Cancel order ${o.code}?`) && act(o, { status: "cancelled" }, "cancelled")}
-                    >
-                      Cancel
+                  {o.status === "completed" && (
+                    <button disabled={busy} className="btn-sm" onClick={() => act(o, { status: "pending" }, "moved back to pending")}>
+                      Move back to pending
                     </button>
                   )}
                 </div>
-                {o.status === "pending" && o.payment_method === "gcash" && o.payment_status !== "paid" && (
-                  <p className="mt-2 text-[11px] text-earth-600">Verify the receipt before preparing.</p>
+                {isPending(o) && needsReceipt(o.payment_method) && o.payment_status !== "paid" && (
+                  <p className="mt-2 text-[11px] text-earth-600">Check your Messenger for the customer’s {METHOD_LABEL[o.payment_method]} payment screenshot.</p>
                 )}
               </article>
             )
@@ -193,7 +164,7 @@ export default function OrdersPanel({ orders, storeOpen }) {
         </div>
       )}
 
-      <Modal open={!!receipt} onClose={() => setReceipt(null)} label="GCash receipt">
+      <Modal open={!!receipt} onClose={() => setReceipt(null)} label="Payment receipt">
         {receipt && (
           <div className="p-5">
             <div className="mb-3 flex items-center justify-between">
@@ -205,7 +176,7 @@ export default function OrdersPanel({ orders, storeOpen }) {
                 <Icon name="close" size={16} />
               </button>
             </div>
-            <img src={receipt.receipt_url} alt="GCash receipt" className="max-h-[65svh] w-full rounded-xl object-contain" />
+            <img src={receipt.receipt_url} alt="Payment receipt" className="max-h-[65svh] w-full rounded-xl object-contain" />
           </div>
         )}
       </Modal>

@@ -1,24 +1,32 @@
 import { useState } from "react"
-import { Icon, Modal } from "../ui.jsx"
-import { CATEGORIES, SIZE_UPCHARGE, peso } from "../../lib/constants.js"
+import { FieldMessage, Icon, Input, Modal } from "../ui.jsx"
+import { CATEGORIES, SIZE_UPCHARGE, isDrinkCategory, peso } from "../../lib/constants.js"
 import { deleteProduct, saveProduct, uploadImage } from "../../lib/db.js"
 import { useNotify } from "../../lib/notify.jsx"
+import { rules, useLiveForm } from "../../lib/validate.js"
 import { PanelHeader, Switch } from "./Shell.jsx"
 
-const blank = { name: "", detail: "", price: "", price_22: "", category: "Coffee", image: "", available: true, has_hot: true }
+const blank = { name: "", detail: "", price: "", price_22: "", category: CATEGORIES[0], image: "", available: true, has_hot: false }
+
+const RULES = {
+  name: rules.required("Product name"),
+  price: rules.price,
+  price_22: rules.priceOptional,
+}
 
 function ProductForm({ product, onClose }) {
   const notify = useNotify()
   const [f, setF] = useState(() => ({
     ...blank,
     ...product,
-    price: product?.price ?? "",
-    price_22: product?.price_22 ?? "",
+    price: product?.price != null ? String(product.price) : "",
+    price_22: product?.price_22 != null ? String(product.price_22) : "",
   }))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }))
-  const isDrink = f.category !== "Other"
+  const form = useLiveForm(f, RULES)
+  const isDrink = isDrinkCategory(f.category)
 
   const upload = async (file) => {
     if (!file) return
@@ -35,9 +43,9 @@ function ProductForm({ product, onClose }) {
   const submit = async (e) => {
     e.preventDefault()
     setError("")
+    form.touchAll()
+    if (!form.valid) return setError("Please fix the highlighted fields first.")
     const price = Number(f.price)
-    if (!f.name.trim()) return setError("Product name is required.")
-    if (!(price > 0)) return setError("Enter a valid price.")
     const payload = {
       ...(product?.id ? { id: product.id } : {}),
       name: f.name.trim(),
@@ -47,7 +55,7 @@ function ProductForm({ product, onClose }) {
       price_22: isDrink ? Number(f.price_22) || price + SIZE_UPCHARGE : null,
       image: f.image.trim(),
       available: f.available,
-      has_hot: f.category === "Coffee" ? !!f.has_hot : false,
+      has_hot: isDrink ? !!f.has_hot : false,
     }
     setBusy(true)
     try {
@@ -62,7 +70,7 @@ function ProductForm({ product, onClose }) {
   }
 
   return (
-    <form onSubmit={submit} className="space-y-5 p-5 sm:p-7">
+    <form onSubmit={submit} noValidate className="space-y-5 p-5 sm:p-7">
       <div className="flex items-center justify-between">
         <h3 className="display-title text-2xl">{product?.id ? "Edit product" : "Add product"}</h3>
         <button type="button" onClick={onClose} aria-label="Close" className="grid size-9 place-items-center rounded-full hover:bg-earth-100">
@@ -71,13 +79,21 @@ function ProductForm({ product, onClose }) {
       </div>
       <label className="block">
         <span className="opt-label">Name</span>
-        <input required value={f.name} onChange={(e) => set("name", e.target.value)} className="input-box mt-2" />
+        <Input
+          value={f.name}
+          onValue={(v) => set("name", v)}
+          onBlur={() => form.blur("name")}
+          error={form.shown("name")}
+          maxLength={80}
+          className="input-box mt-2"
+        />
+        <FieldMessage error={form.shown("name")} />
       </label>
       <label className="block">
         <span className="opt-label">Description</span>
         <textarea rows={2} value={f.detail} onChange={(e) => set("detail", e.target.value)} className="input-box mt-2 resize-y" />
       </label>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
         <label className="block">
           <span className="opt-label">Category</span>
           <select value={f.category} onChange={(e) => set("category", e.target.value)} className="input-box mt-2">
@@ -86,12 +102,32 @@ function ProductForm({ product, onClose }) {
         </label>
         <label className="block">
           <span className="opt-label">{isDrink ? "Price · 16oz (₱)" : "Price (₱)"}</span>
-          <input required type="number" min="1" step="0.01" value={f.price} onChange={(e) => set("price", e.target.value)} className="input-box mt-2" />
+          <Input
+            kind="decimal"
+            value={f.price}
+            onValue={(v) => set("price", v)}
+            onBlur={() => form.blur("price")}
+            error={form.shown("price")}
+            placeholder="0.00"
+            maxLength={9}
+            className="input-box mt-2"
+          />
+          <FieldMessage error={form.shown("price")} hint="Numbers only" />
         </label>
         {isDrink && (
           <label className="block">
             <span className="opt-label">Price · 22oz (₱)</span>
-            <input type="number" min="1" step="0.01" value={f.price_22} onChange={(e) => set("price_22", e.target.value)} placeholder={`+${SIZE_UPCHARGE} if blank`} className="input-box mt-2" />
+            <Input
+              kind="decimal"
+              value={f.price_22}
+              onValue={(v) => set("price_22", v)}
+              onBlur={() => form.blur("price_22")}
+              error={form.shown("price_22")}
+              placeholder={`+${SIZE_UPCHARGE} if blank`}
+              maxLength={9}
+              className="input-box mt-2"
+            />
+            <FieldMessage error={form.shown("price_22")} hint="Numbers only" />
           </label>
         )}
       </div>
@@ -120,9 +156,9 @@ function ProductForm({ product, onClose }) {
         <label className="flex items-center gap-3 text-sm font-semibold">
           <Switch on={f.available} onChange={(v) => set("available", v)} label="Available" /> Available
         </label>
-        {f.category === "Coffee" && (
+        {isDrink && (
           <label className="flex items-center gap-3 text-sm font-semibold">
-            <Switch on={!!f.has_hot} onChange={(v) => set("has_hot", v)} label="Can be served hot" /> Can be served hot (12oz)
+            <Switch on={!!f.has_hot} onChange={(v) => set("has_hot", v)} label="Can be served hot" /> Can be served hot (8oz)
           </label>
         )}
       </div>
@@ -166,7 +202,7 @@ export default function ProductsManager({ products }) {
       <ul className="overflow-hidden rounded-2xl border border-earth-300 bg-earth-50 shadow-sm">
         {list.length === 0 && <li className="px-5 py-14 text-center text-sm text-earth-600">No products in this category.</li>}
         {list.map((p) => (
-          <li key={p.id} className="flex items-center gap-3 border-b border-earth-200 p-3 last:border-b-0">
+          <li key={p.id} className="flex items-center gap-2 border-b border-earth-200 p-2.5 last:border-b-0 sm:gap-3 sm:p-3">
             <img src={p.image} alt="" className="size-14 shrink-0 rounded-lg bg-earth-200 object-cover" />
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold">{p.name}</p>

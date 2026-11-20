@@ -3,13 +3,13 @@ import { Icon, Spinner } from "../components/ui.jsx"
 import { CATEGORIES, peso } from "../lib/constants.js"
 
 export default function MenuPage({ products, loading, error, query, setQuery, openProduct }) {
-  const [activeCategory, setActiveCategory] = useState("Coffee")
+  const [activeCategory, setActiveCategory] = useState(CATEGORIES[0])
   const searching = query.trim().length > 0
 
   // searching looks through the whole menu; clearing the search goes back to a category
   useEffect(() => {
     if (searching) setActiveCategory("All")
-    else setActiveCategory((c) => (c === "All" ? "Coffee" : c))
+    else setActiveCategory((c) => (c === "All" ? CATEGORIES[0] : c))
   }, [searching])
 
   const matches = useMemo(() => {
@@ -29,7 +29,7 @@ export default function MenuPage({ products, loading, error, query, setQuery, op
       <section className="border-b border-earth-300 bg-earth-100 px-5 py-14 sm:px-8 lg:px-12 lg:py-16">
         <div className="mx-auto flex max-w-[1040px] flex-col justify-between gap-6 sm:flex-row sm:items-end">
           <div>
-            <p className="eyebrow">Quick ordering hub</p>
+            <p className="eyebrow">Drink & snack menu</p>
             <h1 className="display-title mt-3 text-6xl tracking-[-.05em] sm:text-7xl">The menu</h1>
           </div>
           <div className="flex h-12 w-full items-center gap-2 rounded-full border border-earth-300 bg-earth-50 px-4 sm:w-80">

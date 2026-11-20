@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
 import { Icon } from "../ui.jsx"
-import { PAYMENT_LABEL, STATUS_LABEL, fmtDateTime, peso } from "../../lib/constants.js"
+import { METHOD_LABEL, ORDER_TYPE_LABEL, PAYMENT_LABEL, STATUS_LABEL, fmtDateTime, peso } from "../../lib/constants.js"
 import { PanelHeader } from "./Shell.jsx"
 
 const RANGES = [
@@ -32,18 +32,20 @@ export default function TransactionsPanel({ orders }) {
     { label: "Sales (paid)", value: peso(sum(paid)) },
     { label: "Cash", value: peso(sum(paid.filter((o) => o.payment_method === "cash"))) },
     { label: "GCash", value: peso(sum(paid.filter((o) => o.payment_method === "gcash"))) },
+    { label: "QRPh", value: peso(sum(paid.filter((o) => o.payment_method === "qrph"))) },
     { label: "Orders", value: rows.length },
   ]
 
   const exportCsv = () => {
     const esc = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`
     const lines = [
-      ["Date", "Code", "Customer", "Method", "Payment", "Status", "Items", "Total"].join(","),
+      ["Date", "Code", "Customer", "Type", "Method", "Payment", "Status", "Items", "Total"].join(","),
       ...rows.map((o) =>
         [
           new Date(o.created_at).toLocaleString("en-PH"),
           o.code,
           o.customer_name,
+          ORDER_TYPE_LABEL[o.order_type] || "",
           o.payment_method,
           o.payment_status,
           o.status,
@@ -55,7 +57,7 @@ export default function TransactionsPanel({ orders }) {
     const url = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/csv" }))
     const a = document.createElement("a")
     a.href = url
-    a.download = `brwd-transactions-${new Date().toISOString().slice(0, 10)}.csv`
+    a.download = `Rookies-Cafe-transactions-${new Date().toISOString().slice(0, 10)}.csv`
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -67,37 +69,61 @@ export default function TransactionsPanel({ orders }) {
           <Icon name="upload" size={14} /> Export CSV
         </button>
       </PanelHeader>
-      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mb-5 grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-3 xl:grid-cols-5">
         {stats.map((s) => (
           <div key={s.label} className="rounded-2xl border border-earth-300 bg-earth-50 p-4 shadow-sm">
             <p className="text-[10px] font-bold uppercase tracking-[.14em] text-earth-600">{s.label}</p>
-            <p className="display-title mt-2 text-2xl">{s.value}</p>
+            <p className="display-title mt-2 truncate text-xl sm:text-2xl">{s.value}</p>
           </div>
         ))}
       </div>
-      <div className="mb-4 flex flex-wrap items-center gap-2">
+      <div className="no-scrollbar mb-4 flex flex-wrap items-center gap-2">
         {RANGES.map((r) => (
           <button key={r.id} onClick={() => setRange(r.id)} className={`chip ${range === r.id ? "chip-active" : ""}`}>
             {r.label}
           </button>
         ))}
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search code or name" className="input-box ml-auto max-w-[220px] rounded-full" aria-label="Search transactions" />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search code or name" className="input-box w-full rounded-full sm:ml-auto sm:max-w-[220px]" aria-label="Search transactions" />
       </div>
-      <div className="overflow-x-auto rounded-2xl border border-earth-300 bg-earth-50 shadow-sm">
+      <ul className="space-y-2 md:hidden">
+        {rows.length === 0 && (
+          <li className="rounded-2xl border border-earth-300 bg-earth-50 px-5 py-12 text-center text-sm text-earth-600">No transactions in this range.</li>
+        )}
+        {rows.map((o) => (
+          <li key={o.id} className="rounded-2xl border border-earth-300 bg-earth-50 p-3.5 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate font-semibold">{o.code}</p>
+                <p className="truncate text-sm">{o.customer_name}</p>
+                <p className="text-[11px] text-earth-600">{fmtDateTime(o.created_at)}</p>
+              </div>
+              <strong className="shrink-0">{peso(o.total)}</strong>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <span className="badge">{ORDER_TYPE_LABEL[o.order_type] || "—"}</span>
+              <span className="badge">{METHOD_LABEL[o.payment_method] || o.payment_method}</span>
+              <span className={`badge ${o.payment_status}`}>{PAYMENT_LABEL[o.payment_status]}</span>
+              <span className={`badge ${o.status}`}>{STATUS_LABEL[o.status]}</span>
+            </div>
+          </li>
+        ))}
+      </ul>
+      <div className="hidden overflow-x-auto rounded-2xl border border-earth-300 bg-earth-50 shadow-sm md:block">
         <table className="data-table min-w-[720px]">
           <thead>
-            <tr><th>Date</th><th>Code</th><th>Customer</th><th>Method</th><th>Payment</th><th>Status</th><th className="text-right">Total</th></tr>
+            <tr><th>Date</th><th>Code</th><th>Customer</th><th>Type</th><th>Method</th><th>Payment</th><th>Status</th><th className="text-right">Total</th></tr>
           </thead>
           <tbody>
             {rows.length === 0 && (
-              <tr><td colSpan={7} className="py-12 text-center text-earth-600">No transactions in this range.</td></tr>
+              <tr><td colSpan={8} className="py-12 text-center text-earth-600">No transactions in this range.</td></tr>
             )}
             {rows.map((o) => (
               <tr key={o.id}>
                 <td className="whitespace-nowrap">{fmtDateTime(o.created_at)}</td>
                 <td className="whitespace-nowrap font-semibold">{o.code}</td>
                 <td>{o.customer_name}</td>
-                <td>{o.payment_method === "gcash" ? "GCash" : "Cash"}</td>
+                <td>{ORDER_TYPE_LABEL[o.order_type] || "—"}</td>
+                <td>{METHOD_LABEL[o.payment_method] || o.payment_method}</td>
                 <td><span className={`badge ${o.payment_status}`}>{PAYMENT_LABEL[o.payment_status]}</span></td>
                 <td><span className={`badge ${o.status}`}>{STATUS_LABEL[o.status]}</span></td>
                 <td className="text-right font-semibold">{peso(o.total)}</td>

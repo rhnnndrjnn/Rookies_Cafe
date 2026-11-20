@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import logo from "../assets/logo.png"
 import { Icon, PageLink } from "./ui.jsx"
-import { peso } from "../lib/constants.js"
+import { BUSINESS, peso } from "../lib/constants.js"
 
 export const navItems = [
   { label: "Home", path: "/" },
   { label: "About", path: "/about" },
   { label: "Menu", path: "/menu" },
+  { label: "Events", path: "/packages" },
   { label: "Orders", path: "/orders" },
   { label: "Contacts", path: "/contacts" },
 ]
@@ -24,7 +25,7 @@ export function StatusBanner({ isOpen }) {
             }`}
           />
           <span className="truncate">
-            Florencia Branch is currently{" "}
+            Teresa Rizal Branch is currently{" "}
             <strong style={{ color: "#F6F1EF" }}>{isOpen ? "OPEN" : "CLOSED"}</strong>
           </span>
         </div>
@@ -71,13 +72,17 @@ export function Navbar({ route, navigate, cartCount, query, setQuery, products }
     <header className="fixed inset-x-0 top-[34px] z-50 border-b border-earth-200 bg-[#F6F1EF] shadow-[0_6px_20px_rgba(32,24,19,.07)]">
       <div className="mx-auto flex h-[68px] max-w-[1440px] items-center justify-between px-5 sm:px-8 lg:px-12">
         <PageLink to="/" navigate={navigate} onClick={closeMenus} className="group flex items-center gap-3">
-          <img src={logo} alt="BRWD Logo" className="h-12 w-auto object-contain" />
+          <img src={logo} alt="Rookies Cafe Logo" className="h-12 w-auto object-contain" />
         </PageLink>
 
         <div className="flex items-center gap-1.5 sm:gap-2">
-          <div ref={searchRef} className="relative">
+          <div ref={searchRef}>
             <button
-              onClick={() => setSearchOpen((o) => !o)}
+              onClick={() => {
+                setSearchOpen((o) => !o)
+                setMobileOpen(false)
+                setAccountOpen(false)
+              }}
               className="grid size-10 place-items-center rounded-full border border-earth-200 transition hover:bg-earth-100"
               aria-label="Search menu"
               aria-expanded={searchOpen}
@@ -85,7 +90,7 @@ export function Navbar({ route, navigate, cartCount, query, setQuery, products }
               <Icon name="search" size={17} />
             </button>
             {searchOpen && (
-              <div className="fixed inset-x-3 top-[106px] rounded-2xl border border-earth-200 bg-earth-50 p-3 shadow-[0_18px_50px_rgba(32,24,19,.18)] sm:absolute sm:inset-x-auto sm:right-0 sm:top-12 sm:w-[380px]">
+              <div className="absolute inset-x-3 top-full z-[55] mt-2 max-h-[70svh] overflow-y-auto rounded-2xl border border-earth-200 bg-earth-50 p-3 shadow-[0_18px_50px_rgba(32,24,19,.22)] sm:inset-x-auto sm:right-8 sm:w-[400px] lg:right-12">
                 <form
                   onSubmit={(e) => {
                     e.preventDefault()
@@ -182,15 +187,6 @@ export function Navbar({ route, navigate, cartCount, query, setQuery, products }
                 <button
                   onClick={() => {
                     closeMenus()
-                    navigate("/employee")
-                  }}
-                  className="portal-item"
-                >
-                  Go to Employee Portal <Icon name="arrow" size={14} />
-                </button>
-                <button
-                  onClick={() => {
-                    closeMenus()
                     navigate("/owner")
                   }}
                   className="portal-item"
@@ -201,7 +197,10 @@ export function Navbar({ route, navigate, cartCount, query, setQuery, products }
             )}
           </div>
           <button
-            onClick={() => setMobileOpen(!mobileOpen)}
+            onClick={() => {
+              setMobileOpen(!mobileOpen)
+              setSearchOpen(false)
+            }}
             className="grid size-10 place-items-center lg:hidden"
             aria-label="Toggle navigation"
           >
@@ -249,12 +248,9 @@ export function Navbar({ route, navigate, cartCount, query, setQuery, products }
               </PageLink>
             ))}
           </nav>
-          <div className="mt-4 grid grid-cols-3 gap-2 text-center text-[9px] font-semibold uppercase tracking-[.08em] md:hidden">
+          <div className="mt-4 grid grid-cols-2 gap-2 text-center text-[9px] font-semibold uppercase tracking-[.08em] md:hidden">
             <button className="rounded-lg bg-earth-700 px-2 py-3" style={{ color: "#F6F1EF" }} onClick={closeMenus}>
               Customer Portal
-            </button>
-            <button className="rounded-lg bg-earth-100 px-2 py-3" onClick={() => { closeMenus(); navigate("/employee") }}>
-              Employee Portal
             </button>
             <button className="rounded-lg bg-earth-100 px-2 py-3" onClick={() => { closeMenus(); navigate("/owner") }}>
               Owner Dashboard
@@ -271,32 +267,22 @@ export function CorporateFooter() {
     <footer className="border-t border-earth-600/30 bg-earth-950 px-6 py-14 text-earth-300 sm:px-10 lg:px-12">
       <div className="mx-auto flex max-w-[900px] flex-col items-center text-center">
         <p className="text-xs font-bold uppercase tracking-[.22em] text-earth-50">
-          BRWD. Philippines
+          Rookies Cafe Philippines
         </p>
         <p className="mt-3 max-w-md text-xs leading-5">
-          Official corporate channels for brand partnerships, franchise
-          inquiries, and nationwide updates.
+          Follow us for new flavors, event coffee cart updates and daily
+          specials.
         </p>
-        <div className="mt-7 flex flex-col items-center gap-3 text-xs sm:flex-row sm:gap-7">
-          <a href="https://www.facebook.com/" className="footer-link">
-            Facebook: BRWD. Philippines
-          </a>
-          <a href="https://www.instagram.com/" className="footer-link">
-            Instagram: @brwd.philippines
-          </a>
-        </div>
-        <div className="mt-4 flex items-center gap-2 text-sm font-semibold text-earth-50">
-          <a href="tel:+639189370101" className="footer-link">
-            0918-937-0101
-          </a>
-          <span className="text-earth-600">/</span>
-          <a href="tel:+639209670101" className="footer-link">
-            0920-967-0101
-          </a>
+        <div className="mt-7 flex flex-wrap items-center justify-center gap-x-7 gap-y-3 text-xs">
+          {BUSINESS.socials.map((s) => (
+            <a key={s.label} href={s.url} target="_blank" rel="noreferrer" className="footer-link">
+              {s.label}: {s.handle}
+            </a>
+          ))}
         </div>
         <div className="mt-9 h-px w-full bg-earth-600/30" />
         <div className="mt-5 flex w-full flex-col justify-between gap-2 text-[9px] uppercase tracking-[.16em] sm:flex-row">
-          <p>© 2026 BRWD. Coffee and Tea</p>
+          <p>© 2025 Rookies Cafe Teresa Rizal</p>
           <p>Official Corporate Brand Channels</p>
         </div>
       </div>

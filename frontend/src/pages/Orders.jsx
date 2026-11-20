@@ -1,30 +1,15 @@
 import { useState } from "react"
 import { Icon, PageLink, Spinner } from "../components/ui.jsx"
-import { PAYMENT_LABEL, STATUS_LABEL, fmtDateTime, lineSummary, peso } from "../lib/constants.js"
-import { attachReceipt, uploadImage } from "../lib/db.js"
-import { useNotify } from "../lib/notify.jsx"
+import { METHOD_LABEL, ORDER_TYPE_LABEL, PAYMENT_LABEL, fmtDateTime, lineSummary, messengerUrl, needsReceipt, peso } from "../lib/constants.js"
 
-const STEPS = ["pending", "preparing", "ready", "completed"]
+const STEPS = ["pending", "completed"]
 
-function OrderCard({ order, onChanged }) {
-  const notify = useNotify()
-  const [busy, setBusy] = useState(false)
-  const step = STEPS.indexOf(order.status)
-
-  const reupload = async (file) => {
-    if (!file) return
-    setBusy(true)
-    try {
-      const url = await uploadImage(file, "receipts")
-      await attachReceipt(order.code, url)
-      notify("Receipt uploaded", "We'll check it shortly.", { tone: "success" })
-      onChanged()
-    } catch (e) {
-      notify("Upload failed", e.message, { tone: "error" })
-    } finally {
-      setBusy(false)
-    }
-  }
+function OrderCard({ order }) {
+  // older orders may still carry preparing / ready — they count as pending
+  const done = order.status === "completed"
+  const cancelled = order.status === "cancelled"
+  const step = done ? 1 : 0
+  const isDelivery = order.order_type === "delivery"
 
   return (
     <article className="rounded-2xl border border-earth-300 bg-earth-50 p-5 shadow-md sm:p-6">
@@ -32,25 +17,27 @@ function OrderCard({ order, onChanged }) {
         <div>
           <p className="display-title text-2xl">{order.code}</p>
           <p className="mt-1 text-xs text-earth-600">
-            Placed {fmtDateTime(order.created_at)} · pickup {fmtDateTime(order.arrival_time)}
+            Placed {fmtDateTime(order.created_at)} · {ORDER_TYPE_LABEL[order.order_type] || "Pick up"} ·{" "}
+            {isDelivery ? "delivery" : "arrival"} {fmtDateTime(order.arrival_time)}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <span className={`badge ${order.status}`}>{STATUS_LABEL[order.status]}</span>
+          <span className={`badge ${cancelled ? "cancelled" : done ? "completed" : "pending"}`}>
+            {cancelled ? "Cancelled" : done ? "Completed" : "Pending"}
+          </span>
           <span className={`badge ${order.payment_status}`}>
-            {order.payment_method === "gcash" ? "GCash · " : "Cash · "}
-            {PAYMENT_LABEL[order.payment_status]}
+            {METHOD_LABEL[order.payment_method] || order.payment_method} · {PAYMENT_LABEL[order.payment_status]}
           </span>
         </div>
       </div>
 
-      {order.status !== "cancelled" && (
-        <ol className="mt-5 grid grid-cols-4 gap-2 text-center text-[10px] font-bold uppercase tracking-[.08em]">
+      {!cancelled && (
+        <ol className="mt-5 grid grid-cols-2 gap-2 text-center text-[10px] font-bold uppercase tracking-[.08em]">
           {STEPS.map((s, i) => (
             <li key={s}>
               <span className={`block h-1.5 rounded-full ${i <= step ? "bg-earth-700" : "bg-earth-200"}`} />
               <span className={`mt-2 block ${i <= step ? "text-earth-900" : "text-earth-500"}`}>
-                {s === "ready" ? "Ready" : STATUS_LABEL[s]}
+                {s === "pending" ? "Pending" : "Completed"}
               </span>
             </li>
           ))}
@@ -73,26 +60,27 @@ function OrderCard({ order, onChanged }) {
         <span>{peso(order.total)}</span>
       </p>
 
-      {order.payment_method === "cash" && order.status === "pending" && (
+      {isDelivery && order.delivery_address && (
         <p className="mt-4 rounded-xl bg-earth-100 p-3 text-xs leading-5 text-earth-700">
-          Your order will be prepared upon your arrival. Please pay in cash at the counter.
+          <strong>Deliver to:</strong> {order.delivery_address}
         </p>
       )}
-      {order.payment_status === "rejected" && order.status !== "cancelled" && (
-        <div className="mt-4 rounded-xl bg-[#F3DEDB] p-3 text-xs leading-5 text-[#8F3B31]">
-          We couldn’t verify your GCash receipt. Please upload a clearer one.
-          <label className={`btn-sm mt-3 cursor-pointer ${busy ? "opacity-60" : ""}`}>
-            <Icon name="upload" size={14} /> {busy ? "Uploading…" : "Upload new receipt"}
-            <input type="file" accept="image/*" className="sr-only" disabled={busy} onChange={(e) => reupload(e.target.files?.[0])} />
-          </label>
-        </div>
+      {!done && !cancelled && (
+        <p className="mt-4 rounded-xl bg-earth-100 p-3 text-xs leading-5 text-earth-700">
+          {needsReceipt(order.payment_method)
+            ? `Send your order and ${METHOD_LABEL[order.payment_method]} payment screenshot on Messenger so we can confirm it. `
+            : "Make sure you’ve sent your order on Messenger so we can confirm it. "}
+          <a href={messengerUrl()} target="_blank" rel="noreferrer" className="font-semibold underline underline-offset-4">
+            Open Messenger
+          </a>
+        </p>
       )}
     </article>
   )
 }
 
 export default function OrdersPage({ navigate, myOrders }) {
-  const { orders, loading, refresh, track } = myOrders
+  const { orders, loading, track } = myOrders
   const [code, setCode] = useState("")
 
   return (
@@ -100,7 +88,7 @@ export default function OrdersPage({ navigate, myOrders }) {
       <section className="border-b border-earth-300 bg-earth-100 px-5 py-14 sm:px-8 lg:px-12 lg:py-16">
         <div className="mx-auto flex max-w-[1040px] flex-col justify-between gap-6 sm:flex-row sm:items-end">
           <div>
-            <p className="eyebrow">Follow your pickup</p>
+            <p className="eyebrow">Follow your order</p>
             <h1 className="display-title mt-3 text-6xl tracking-[-.05em] sm:text-7xl">My orders</h1>
           </div>
           <form
@@ -113,7 +101,7 @@ export default function OrdersPage({ navigate, myOrders }) {
             <input
               value={code}
               onChange={(e) => setCode(e.target.value)}
-              placeholder="Have an order code? BRWD-1106-1234"
+              placeholder="Have an order code? ROOK-1106-1234"
               className="input-box rounded-full"
               aria-label="Order code"
             />
@@ -134,7 +122,7 @@ export default function OrdersPage({ navigate, myOrders }) {
               </PageLink>
             </div>
           ) : (
-            orders.map((o) => <OrderCard key={o.id} order={o} onChanged={refresh} />)
+            orders.map((o) => <OrderCard key={o.id} order={o} />)
           )}
         </div>
       </section>

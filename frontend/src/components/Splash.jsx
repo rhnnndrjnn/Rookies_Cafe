@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import logo from "../assets/logo.png"
 
-// Start-up screen: shows the BRWD. logo for a moment, then fades into the site.
+// Start-up screen: shows the Rookies Cafe logo for a moment, then fades into the site.
 export default function Splash({ onDone, hold = 1900 }) {
   const [leaving, setLeaving] = useState(false)
 
@@ -21,12 +21,12 @@ export default function Splash({ onDone, hold = 1900 }) {
         leaving ? "splash-out" : ""
       }`}
       role="status"
-      aria-label="Loading BRWD."
+      aria-label="Loading Rookies Cafe"
     >
       <div className="flex flex-col items-center">
-        <img src={logo} alt="BRWD." className="splash-logo h-28 w-auto object-contain sm:h-36" />
+        <img src={logo} alt="Rookies Cafe" className="splash-logo h-28 w-auto object-contain sm:h-36" />
         <p className="splash-tag mt-6 text-[10px] font-bold uppercase tracking-[.34em] text-earth-600">
-          Coffee &amp; Tea · Florencia
+          Coffee &amp; Tea · Teresa Rizal
         </p>
         <span className="splash-bar mt-8 block h-px w-40 origin-left bg-earth-700" />
       </div>

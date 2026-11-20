@@ -1,22 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { getBeans, getOrdersByCodes, getProducts, getSettings, subscribe } from "./db.js"
+import { getBookedDates, getOrdersByCodes, getProducts, getSettings, subscribe } from "./db.js"
 
 /** Live menu data shared by the customer pages and the staff portals. */
 export function useMenuData() {
   const [products, setProducts] = useState([])
-  const [beans, setBeans] = useState([])
   const [settings, setSettings] = useState({
     store_open: { open: true },
     gcash: { name: "", number: "", qr: "" },
+    qrph: { name: "", qr: "" },
   })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
 
   const load = useCallback(async () => {
     try {
-      const [p, b, s] = await Promise.all([getProducts(), getBeans(), getSettings()])
+      const [p, s] = await Promise.all([getProducts(), getSettings()])
       setProducts(p)
-      setBeans(b)
       setSettings(s)
       setError("")
     } catch (e) {
@@ -28,10 +27,10 @@ export function useMenuData() {
 
   useEffect(() => {
     load()
-    return subscribe(["products", "beans", "settings"], load)
+    return subscribe(["products", "settings"], load)
   }, [load])
 
-  return { products, beans, settings, loading, error, reload: load }
+  return { products, settings, loading, error, reload: load }
 }
 
 /* ---- customer order tracking: polls the visitor's own orders and toasts on status changes ---- */
@@ -53,7 +52,7 @@ export function useMyOrders(active) {
           const prev = seen.current[o.code]
           if (prev && (prev.status !== o.status || prev.payment_status !== o.payment_status)) {
             if (prev.payment_status !== o.payment_status && o.payment_status === "paid")
-              notify(`Payment confirmed · ${o.code}`, "We received your GCash payment.", { tone: "success" })
+              notify(`Payment confirmed · ${o.code}`, "We received your payment.", { tone: "success" })
             else if (prev.payment_status !== o.payment_status && o.payment_status === "rejected")
               notify(`Receipt problem · ${o.code}`, "We couldn't verify your receipt. Please re-upload it in Orders.", { tone: "error", duration: 9000 })
             if (prev.status !== o.status)
@@ -89,4 +88,42 @@ export function useMyOrders(active) {
     return refresh()
   }
   return { orders, loading, refresh, track }
+}
+
+/**
+ * Days that are already booked, for the public booking calendar.
+ * Customers can't read the bookings table (privacy), so this polls a safe RPC that only
+ * returns dates — and refreshes when the tab regains focus.
+ */
+export function useBookedDates() {
+  const [dates, setDates] = useState({}) // { "YYYY-MM-DD": status }
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
+
+  const refresh = useCallback(async () => {
+    try {
+      const rows = await getBookedDates()
+      setDates(Object.fromEntries(rows.map((r) => [String(r.event_date).slice(0, 10), r.status])))
+      setError("")
+    } catch (e) {
+      setError(e.message || "Could not load availability.")
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    refresh()
+    const t = setInterval(refresh, 30000)
+    const onVisible = () => document.visibilityState === "visible" && refresh()
+    document.addEventListener("visibilitychange", onVisible)
+    const unsub = subscribe(["bookings"], refresh) // instant in demo mode / for staff
+    return () => {
+      clearInterval(t)
+      document.removeEventListener("visibilitychange", onVisible)
+      unsub()
+    }
+  }, [refresh])
+
+  return { dates, loading, error, refresh }
 }

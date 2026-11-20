@@ -427,7 +427,7 @@ html {
 .badge.pending { background: #F1E2B8; color: #6B5311; }
 .badge.preparing { background: #CFDDF0; color: #234A78; }
 .badge.ready { background: #CBE6CF; color: #1F5A2B; }
-.badge.completed { background: var(--earth-200); color: var(--earth-800); }
+.badge.completed { background: #CBE6CF; color: #1F5A2B; }
 .badge.cancelled, .badge.rejected { background: #F3DEDB; color: #8F3B31; }
 .badge.paid { background: #CBE6CF; color: #1F5A2B; }
 .badge.verifying { background: #F1E2B8; color: #6B5311; }
@@ -460,3 +460,81 @@ html {
 }
 .data-table td { padding: .85rem 1rem; border-bottom: 1px solid var(--earth-200); vertical-align: top; }
 .data-table tr:last-child td { border-bottom: 0; }
+
+/* ===================== live validation + calendar + cart select ===================== */
+.input-box.input-error,
+.contact-field.input-error {
+  border-color: #B5564A;
+  background: #FBF1EF;
+}
+.input-box.input-error:focus { box-shadow: 0 0 0 3px rgba(181, 86, 74, .16); }
+.contact-field.input-error { background: transparent; }
+.field-error {
+  display: flex; align-items: flex-start; gap: .4rem; margin-top: .45rem;
+  font-size: .72rem; line-height: 1.25rem; font-weight: 600; color: #8F3B31;
+  letter-spacing: normal; text-transform: none;
+}
+.field-error > span {
+  display: inline-grid; place-items: center; flex-shrink: 0; width: 1rem; height: 1rem; margin-top: .15rem;
+  border-radius: 999px; background: #B5564A; color: #fff; font-size: .62rem; font-weight: 800;
+}
+.field-hint { margin-top: .45rem; font-size: .72rem; line-height: 1.2rem; color: var(--earth-600); letter-spacing: normal; text-transform: none; font-weight: 500; }
+
+.badge.confirmed { background: #CBE6CF; color: #1F5A2B; }
+.badge.declined { background: #F3DEDB; color: #8F3B31; }
+.badge.blocked { background: var(--earth-300); color: var(--earth-900); }
+
+/* checkbox used for "select what to buy" in the cart */
+.select-box {
+  display: grid; place-items: center; flex-shrink: 0; width: 1.5rem; height: 1.5rem;
+  border: 1.5px solid var(--earth-500); border-radius: .45rem; background: var(--earth-50);
+  color: var(--earth-50); transition: 140ms ease;
+}
+.select-box:hover { border-color: var(--earth-700); }
+.select-box.on { background: var(--earth-700); border-color: var(--earth-700); }
+.select-box svg { opacity: 0; transition: opacity 120ms ease; }
+.select-box.on svg { opacity: 1; }
+
+/* ---- event calendar ---- */
+.cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: .3rem; }
+.cal-dow { text-align: center; font-size: .6rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--earth-600); padding: .35rem 0; }
+.cal-day {
+  position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .15rem;
+  aspect-ratio: 1 / 1; min-height: 2.6rem; border-radius: .75rem; border: 1px solid transparent;
+  font-size: .85rem; font-weight: 600; color: var(--earth-900); background: var(--earth-50); transition: 140ms ease;
+}
+.cal-day small { font-size: .5rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; line-height: 1; }
+.cal-day.free { border-color: #B9D8BE; background: #EAF5EC; color: #1F5A2B; }
+.cal-day.free:hover:not(:disabled) { background: #D5EBD9; border-color: #4F8E58; transform: translateY(-1px); }
+.cal-day.taken { background: var(--earth-200); color: var(--earth-600); cursor: not-allowed; }
+.cal-day.pending { background: #F8EBC6; border-color: #E4CC87; color: #6B5311; }
+.cal-day.confirmed { background: #CFE7D3; border-color: #7FB88A; color: #1F5A2B; }
+.cal-day.blocked { background: var(--earth-300); color: var(--earth-900); }
+.cal-day.past { background: transparent; color: var(--earth-400); cursor: not-allowed; }
+.cal-day.outside { visibility: hidden; }
+.cal-day.today::after { content: ""; position: absolute; bottom: .3rem; width: .25rem; height: .25rem; border-radius: 999px; background: currentColor; opacity: .7; }
+.cal-day.selected, .cal-day.selected:hover:not(:disabled) { background: var(--earth-700); border-color: var(--earth-700); color: var(--earth-50); transform: none; }
+.cal-day:focus-visible { outline: 2px solid var(--earth-700); outline-offset: 2px; }
+.cal-legend { display: flex; flex-wrap: wrap; gap: .5rem 1rem; font-size: .68rem; color: var(--earth-700); }
+.cal-legend i { display: inline-block; width: .8rem; height: .8rem; margin-right: .4rem; vertical-align: -.1rem; border-radius: .25rem; border: 1px solid var(--earth-400); }
+
+/* real map embed (replaces the old decorative placeholder) */
+.map-frame { position: relative; min-height: 420px; background: var(--earth-300); }
+.map-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; filter: saturate(.85) sepia(.12); }
+
+/* ---------- Owner dashboard: responsive polish (phones → ultrawide) ---------- */
+html, body { max-width: 100%; overflow-x: clip; }
+@media (max-width: 380px) {
+  .btn-sm { padding: .45rem .7rem; font-size: .62rem; }
+  .cal-grid { gap: .2rem; }
+  .cal-day { min-height: 2.2rem; font-size: .75rem; border-radius: .6rem; }
+  .cal-day small { display: none; }
+  .staff-tab { padding: .55rem .7rem; font-size: .75rem; }
+}
+@media (hover: none) {
+  .btn-sm, .staff-tab, .chip { min-height: 2.5rem; }
+}
+.data-table td, .data-table th { padding-inline: .75rem; }
+@supports (padding: max(0px)) {
+  header.sticky { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+}

@@ -1,32 +1,32 @@
 import { Icon, PageLink } from "../components/ui.jsx"
-import { image } from "../lib/constants.js"
+import { BUSINESS, image } from "../lib/constants.js"
 
 export default function AboutPage({ navigate }) {
   return (
     <main>
       <section className="grid min-h-[650px] lg:grid-cols-2">
         <div className="flex flex-col justify-center bg-earth-900 px-6 py-20 text-earth-50 sm:px-10 lg:px-16 xl:px-20">
-          <p className="eyebrow !text-earth-300">The BRWD.</p>
+          <p className="eyebrow !text-earth-300">Rookies Cafe</p>
           <h1 className="display-title mt-5 text-[clamp(3.7rem,7vw,7rem)] leading-[.9] tracking-[-.055em]">
-            A good cup.
+            Good coffee.
             <br />
-            <span className="italic text-earth-300">A familiar place.</span>
+            <span className="italic text-earth-300">Great moments.</span>
           </h1>
           <p className="mt-8 max-w-lg text-base leading-7 text-earth-300">
-            More than just delicious drinks, our home is a place where you can find comfort, 
-            friendship, and someone to listen. Whatever you're feeling, BRWD Florencia is 
-            always here for you. Because we're not just serving drinks, we're building 
-            friendships <br/> <br/>
-            BRWD Florencia — More than a drink, a home away from home.
+            {BUSINESS.subTagline} From classic espresso favorites to matcha,
+            non-coffee treats, and cheesy snacks, everything at Rookies Cafe is
+            made fresh for the moments worth sharing.
+            <br /> <br />
+            Rookies Cafe — Good Coffee. Great Moments.
           </p>
         </div>
-        <div className="min-h-[520px]">
-          <img
-            src={image("photo-1598959652545-c0230cdbb01f", 1400)}
-            alt="The warm interior and menu board of a neighborhood café"
-            className="h-full w-full object-cover"
-          />
-        </div>
+        <div className="h-full min-h-[520px] overflow-hidden">
+  <img
+    src="https://lugwbevxkxmkhrqzpdox.supabase.co/storage/v1/object/public/menu-images/mommm.jpg"
+    alt="Warm interior of Rookies Cafe"
+    className="h-full w-full object-cover object-center"
+  />
+</div>
       </section>
 
       <section className="bg-earth-100 px-5 py-20 sm:px-8 lg:px-12 lg:py-28">
@@ -43,23 +43,23 @@ export default function AboutPage({ navigate }) {
             {[
               {
                 number: "01",
-                title: "Considered sourcing",
-                text: "We select expressive coffee beans and tea leaves with balanced flavor, dependable quality, and responsible partnerships in mind.",
+                title: "Arabica blend",
+                text: "Every espresso drink is pulled from our Arabica blend coffee beans, chosen for a smooth, balanced cup.",
               },
               {
                 number: "02",
                 title: "Made with intention",
-                text: "Every drink is measured, brewed, and finished by hand. No shortcuts—just a better version of your everyday favorite.",
+                text: "Every drink is freshly prepared and finished by hand—with premium syrups, sauces, and ingredients.",
               },
               {
                 number: "03",
-                title: "Neighborhood first",
-                text: "Florencia is more than our address. We built this branch to feel at home in SFDM and to serve the people around it.",
+                title: "Made for every craving",
+                text: "Espresso, matcha, cocoa, fruity favorites, and snacks—there is something for every coffee craving.",
               },
               {
                 number: "04",
-                title: "Warmly familiar",
-                text: "Good hospitality should feel easy. We remember regulars, welcome new faces, and always leave room to stay awhile.",
+                title: "Coffee on the go",
+                text: "Our mobile coffee cart brings a professional barista and the full menu to weddings, birthdays, and corporate events.",
               },
             ].map((value) => (
               <article
@@ -80,46 +80,46 @@ export default function AboutPage({ navigate }) {
       </section>
 
       <section className="bg-earth-300 px-5 py-20 sm:px-8 lg:px-12 lg:py-24">
-        <div className="mx-auto max-w-[1344px]">
-          <div className="mb-10 max-w-2xl">
-            <p className="eyebrow">Inside Florencia</p>
-            <h2 className="display-title mt-4 text-5xl tracking-[-.04em] sm:text-6xl">
-              The branch, in moments.
-            </h2>
-          </div>
-          <div className="gallery-grid">
-            <figure className="gallery-tall">
-              <img
-                src={image("photo-1553329537-7a06eb26021c")}
-                alt="A carefully poured cup of coffee"
-              />
-            </figure>
-            <figure>
-              <img
-                src={image("photo-1534432182912-63863115e106")}
-                alt="Fresh pastries at the café counter"
-              />
-            </figure>
-            <figure>
-              <img
-                src={image("photo-1520903304654-28bd223f96d7")}
-                alt="Coffee and pastry ready to share"
-              />
-            </figure>
-            <figure className="gallery-wide">
-              <img
-                src={image("photo-1598959652545-c0230cdbb01f", 1400)}
-                alt="Warm details inside a rustic coffee shop"
-              />
-            </figure>
-          </div>
-          <div className="mt-12 flex justify-center">
-            <PageLink to="/menu" navigate={navigate} className="primary-button">
-              Taste the story <Icon name="arrow" />
-            </PageLink>
-          </div>
-        </div>
-      </section>
+  <div className="mx-auto max-w-[1344px]">
+    <div className="mb-10 max-w-2xl">
+      <p className="eyebrow">Inside Rookies Cafe</p>
+      <h2 className="display-title mt-4 text-5xl tracking-[-.04em] sm:text-6xl">
+        The cafe, in moments.
+      </h2>
+    </div>
+    <div className="gallery-grid">
+      <figure className="gallery-tall">
+        <img
+          src="https://lugwbevxkxmkhrqzpdox.supabase.co/storage/v1/object/public/menu-images/mom4.jpg"
+          alt="A carefully poured cup of coffee"
+        />
+      </figure>
+      <figure>
+        <img
+          src="https://lugwbevxkxmkhrqzpdox.supabase.co/storage/v1/object/public/menu-images/mom.jpg"
+          alt="Fresh pastries at the café counter"
+        />
+      </figure>
+      <figure>
+        <img
+          src="https://lugwbevxkxmkhrqzpdox.supabase.co/storage/v1/object/public/menu-images/mom1.jpg"
+          alt="Coffee and pastry ready to share"
+        />
+      </figure>
+      <figure className="gallery-wide">
+        <img
+          src="https://lugwbevxkxmkhrqzpdox.supabase.co/storage/v1/object/public/menu-images/mom2.jpg"
+          alt="Warm details inside a rustic coffee shop"
+        />
+      </figure>
+    </div>
+    <div className="mt-12 flex justify-center">
+      <PageLink to="/menu" navigate={navigate} className="primary-button">
+        Taste the menu <Icon name="arrow" />
+      </PageLink>
+    </div>
+  </div>
+</section>
     </main>
   )
 }

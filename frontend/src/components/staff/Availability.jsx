@@ -1,5 +1,5 @@
 import { CATEGORIES, peso } from "../../lib/constants.js"
-import { setBeanAvailable, setProductAvailable } from "../../lib/db.js"
+import { setProductAvailable } from "../../lib/db.js"
 import { useNotify } from "../../lib/notify.jsx"
 import { PanelHeader, Switch } from "./Shell.jsx"
 
@@ -43,37 +43,6 @@ export function ProductAvailability({ products }) {
           )
         })}
       </div>
-    </div>
-  )
-}
-
-export function BeanAvailability({ beans }) {
-  const notify = useNotify()
-  const toggle = async (b, on) => {
-    try {
-      await setBeanAvailable(b.id, on)
-      notify(`${b.name} marked ${on ? "available" : "unavailable"}`)
-    } catch (e) {
-      notify("Update failed", e.message, { tone: "error" })
-    }
-  }
-  return (
-    <div>
-      <PanelHeader eyebrow="Inventory" title="Coffee beans" />
-      <p className="mb-5 text-sm text-earth-600">Unavailable beans are greyed out when customers customize a coffee.</p>
-      <ul className="max-w-xl overflow-hidden rounded-2xl border border-earth-300 bg-earth-50 shadow-sm">
-        {beans.map((b) => (
-          <li key={b.id} className="flex items-center justify-between gap-3 border-b border-earth-200 p-4 last:border-b-0">
-            <div>
-              <p className="text-sm font-semibold">{b.name}</p>
-              <p className={`text-xs font-semibold ${b.available ? "text-[#1F5A2B]" : "text-[#8F3B31]"}`}>
-                {b.available ? "Available" : "Unavailable"}
-              </p>
-            </div>
-            <Switch on={b.available} onChange={(v) => toggle(b, v)} label={`${b.name} available`} />
-          </li>
-        ))}
-      </ul>
     </div>
   )
 }

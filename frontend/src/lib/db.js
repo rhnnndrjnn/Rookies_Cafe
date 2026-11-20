@@ -1,8 +1,17 @@
-// Data layer. Talks to Supabase when VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY are set,
+// Data layer. Talks to Supabase when VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY are set,
 // otherwise falls back to a localStorage "demo mode" with the same API so the whole
 // site (including both staff portals) can be tried without a backend.
 import { supabase, isDemo } from "./supabase"
-import { SEED_PRODUCTS, BEANS, makeOrderCode } from "./constants"
+import {
+  BOOKING_HOLDS_DAY,
+  BUCKET,
+  METHOD_LABEL,
+  ORDER_TYPE_LABEL,
+  SEED_PRODUCTS,
+  makeBookingCode,
+  makeOrderCode,
+  needsReceipt,
+} from "./constants"
 
 const uid = () =>
   crypto.randomUUID
@@ -12,8 +21,8 @@ const uid = () =>
 /* ------------------------------------------------------------------ */
 /* Local engine (demo mode)                                            */
 /* ------------------------------------------------------------------ */
-const LS = "brwd_db_"
-const channel = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("brwd-db") : null
+const LS = "rookie_db_"
+const channel = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("rookie-db") : null
 const listeners = new Set()
 
 const fire = (table, event) =>
@@ -34,28 +43,25 @@ const readLocal = (t) => {
 const writeLocal = (t, rows) => localStorage.setItem(LS + t, JSON.stringify(rows))
 
 function seedLocal() {
-  if (readLocal("seeded")) return
+  if (readLocal("seeded_rookie_v2")) return
   const now = new Date().toISOString()
   writeLocal(
     "products",
     SEED_PRODUCTS.map((p) => ({ ...p, id: uid(), created_at: now })),
   )
-  writeLocal(
-    "beans",
-    BEANS.map((name) => ({ id: uid(), name, available: true })),
-  )
   writeLocal("orders", [])
+  writeLocal("bookings", [])
   writeLocal("messages", [])
   writeLocal("notifications", [])
   writeLocal("settings", [
     { key: "store_open", value: { open: true } },
-    { key: "gcash", value: { name: "BRWD Florencia", number: "0918-937-0101", qr: "" } },
+    { key: "gcash", value: { name: "Rookies Cafe Teresa Rizal", number: "", qr: "" } },
+    { key: "qrph", value: { name: "Rookies Cafe Teresa Rizal", qr: "" } },
   ])
   writeLocal("staff", [
-    { id: uid(), username: "employee", password: "employee123", role: "employee" },
     { id: uid(), username: "owner", password: "owner123", role: "owner" },
   ])
-  writeLocal("seeded", true)
+  writeLocal("seeded_rookie_v2", true)
 }
 if (isDemo) seedLocal()
 
@@ -123,7 +129,7 @@ export function subscribe(tables, cb) {
     listeners.add(l)
     return () => listeners.delete(l)
   }
-  const ch = supabase.channel("brwd-" + tables.join("-") + "-" + uid())
+  const ch = supabase.channel("rookie-" + tables.join("-") + "-" + uid())
   tables.forEach((table) =>
     ch.on("postgres_changes", { event: "*", schema: "public", table }, (p) =>
       cb({ type: p.eventType, row: p.new && Object.keys(p.new).length ? p.new : p.old, table }),
@@ -134,7 +140,7 @@ export function subscribe(tables, cb) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Products & beans                                                    */
+/* Products                                                            */
 /* ------------------------------------------------------------------ */
 export const getProducts = () => list("products", { order: "created_at", asc: true })
 export const saveProduct = (product) =>
@@ -142,11 +148,8 @@ export const saveProduct = (product) =>
 export const deleteProduct = (id) => remove("products", id)
 export const setProductAvailable = (id, available) => update("products", id, { available })
 
-export const getBeans = () => list("beans", { order: "name", asc: true })
-export const setBeanAvailable = (id, available) => update("beans", id, { available })
-
 /* ------------------------------------------------------------------ */
-/* Settings (store status, GCash details)                              */
+/* Settings (store status, GCash + QRPh details)                       */
 /* ------------------------------------------------------------------ */
 export async function getSettings() {
   let rows
@@ -156,7 +159,11 @@ export async function getSettings() {
     if (error) throw error
     rows = data
   }
-  const out = { store_open: { open: true }, gcash: { name: "", number: "", qr: "" } }
+  const out = {
+    store_open: { open: true },
+    gcash: { name: "", number: "", qr: "" },
+    qrph: { name: "", qr: "" },
+  }
   rows.forEach((r) => (out[r.key] = r.value))
   return out
 }
@@ -185,16 +192,29 @@ export async function createOrder(order) {
   const row = {
     code: makeOrderCode(),
     status: "pending",
-    payment_status: order.payment_method === "gcash" ? "verifying" : "unpaid",
+    // GCash / QRPh: the customer sends proof in Messenger, so the owner marks it paid once seen.
+    payment_status: needsReceipt(order.payment_method) ? "verifying" : "unpaid",
     ...order,
   }
-  const saved = await insert("orders", row)
+  let saved
+  try {
+    saved = await insert("orders", row)
+  } catch (e) {
+    // The database hasn't had supabase/migration_v3.sql run yet (no order_type / delivery_address
+    // columns). Don't lose the order: store those details inside the note instead.
+    if (!/order_type|delivery_address|schema cache/i.test(e?.message || "")) throw e
+    const { order_type, delivery_address, ...rest } = row
+    const extra = [ORDER_TYPE_LABEL[order_type], delivery_address && `Deliver to: ${delivery_address}`]
+      .filter(Boolean)
+      .join(" · ")
+    saved = await insert("orders", { ...rest, note: [extra, rest.note].filter(Boolean).join(" · ") })
+  }
   await pushNotification({
     type: "order",
     title: "New order " + saved.code,
     body: `${saved.customer_name} · ₱${Number(saved.total).toFixed(2)} · ${
-      saved.payment_method === "gcash" ? "GCash (check receipt)" : "Cash on arrival"
-    }`,
+      METHOD_LABEL[saved.payment_method] || saved.payment_method
+    } · ${ORDER_TYPE_LABEL[saved.order_type] || ""}${needsReceipt(saved.payment_method) ? " (check Messenger for proof)" : ""}`,
     order_code: saved.code,
   })
   return saved
@@ -231,11 +251,85 @@ export async function attachReceipt(code, url) {
   }
   await pushNotification({
     type: "payment",
-    title: "New GCash receipt " + code,
+    title: "New payment receipt " + code,
     body: "Customer re-uploaded a receipt",
     order_code: code,
   })
 }
+
+/* ------------------------------------------------------------------ */
+/* Event bookings (mobile coffee cart)                                 */
+/* ------------------------------------------------------------------ */
+/** Staff only (RLS): every booking, soonest event first. */
+export const getBookings = () => list("bookings", { order: "event_date", asc: true })
+
+/**
+ * Public: which days are already taken, WITHOUT exposing who booked them.
+ * Returns [{ event_date: "YYYY-MM-DD", status }].
+ */
+export async function getBookedDates() {
+  if (isDemo)
+    return (readLocal("bookings") || [])
+      .filter((b) => BOOKING_HOLDS_DAY.includes(b.status))
+      .map((b) => ({ event_date: b.event_date, status: b.status }))
+  const { data, error } = await supabase.rpc("booked_dates")
+  if (error) throw error
+  return data || []
+}
+
+const DAY_TAKEN = "Sorry — that date was just taken. Please pick another day."
+
+export async function createBooking(booking) {
+  const row = { code: makeBookingCode(), status: "pending", ...booking }
+  if (isDemo) {
+    const taken = (readLocal("bookings") || []).some(
+      (b) => b.event_date === row.event_date && BOOKING_HOLDS_DAY.includes(b.status),
+    )
+    if (taken) throw new Error(DAY_TAKEN)
+  }
+  let saved
+  try {
+    saved = await insert("bookings", row)
+  } catch (e) {
+    // unique index on (event_date) for active bookings — someone else got there first
+    if (e?.code === "23505") throw new Error(DAY_TAKEN)
+    throw e
+  }
+  await pushNotification({
+    type: "booking",
+    title: "New event booking " + saved.code,
+    body: `${saved.customer_name} · ${saved.event_date} · ${saved.package || "package TBD"}`,
+  })
+  return saved
+}
+
+export async function setBookingStatus(booking, status, notifyText) {
+  await update("bookings", booking.id, { status })
+  if (notifyText)
+    await pushNotification({
+      type: "booking",
+      title: `${booking.code}: ${notifyText}`,
+      body: `${booking.customer_name} · ${booking.event_date}`,
+    })
+}
+
+/** Owner: close a free day (holiday, day off, already booked elsewhere…). */
+export async function blockDate(date, reason = "") {
+  try {
+    return await insert("bookings", {
+      code: "BLOCK-" + date,
+      customer_name: "Blocked by owner",
+      phone: "",
+      event_date: date,
+      status: "blocked",
+      notes: reason,
+    })
+  } catch (e) {
+    if (e?.code === "23505") throw new Error("That day already has a booking.")
+    throw e
+  }
+}
+export const deleteBooking = (id) => remove("bookings", id)
 
 /* ------------------------------------------------------------------ */
 /* Messages & notifications                                            */
@@ -290,22 +384,22 @@ const blobToDataUrl = (blob) =>
     r.readAsDataURL(blob)
   })
 
-/** folder: "receipts" | "products" | "gcash" — returns a URL (or data URL in demo mode). */
+/** folder: "receipts" | "products" | "gcash" | "qrph" — returns a URL (or data URL in demo mode). */
 export async function uploadImage(file, folder) {
   const blob = await compressImage(file)
   if (isDemo) return blobToDataUrl(blob)
   const path = `${folder}/${Date.now()}-${uid().slice(0, 8)}.jpg`
-  const { error } = await supabase.storage.from("brwd").upload(path, blob, {
+  const { error } = await supabase.storage.from(BUCKET).upload(path, blob, {
     contentType: "image/jpeg",
   })
   if (error) throw error
-  return supabase.storage.from("brwd").getPublicUrl(path).data.publicUrl
+  return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl
 }
 
 /* ------------------------------------------------------------------ */
 /* Staff auth (username + password)                                    */
 /* ------------------------------------------------------------------ */
-const SESSION_KEY = "brwd_staff_session"
+const SESSION_KEY = "rookie_staff_session"
 
 async function profileFor(user) {
   const { data, error } = await supabase.from("profiles").select("*").eq("id", user.id).single()

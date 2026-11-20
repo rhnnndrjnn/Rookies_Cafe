@@ -48,10 +48,10 @@ export default function MessagesPanel({ messages, canDelete }) {
                 </span>
               </button>
               {openId === m.id && (
-                <div className="px-4 pb-4 pl-9">
+                <div className="px-3 pb-4 sm:pl-9 sm:pr-4">
                   <p className="whitespace-pre-wrap rounded-xl bg-white/60 p-4 text-sm leading-6">{m.message}</p>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <a className="btn-sm solid" href={`mailto:${m.email}?subject=${encodeURIComponent("Re: your message to BRWD. Florencia")}`}>
+                    <a className="btn-sm solid" href={`mailto:${m.email}?subject=${encodeURIComponent("Re: your message to Rookies Cafe Teresa Rizal")}`}>
                       <Icon name="mail" size={14} /> Reply by email
                     </a>
                     <button className="btn-sm" onClick={() => markMessage(m.id, false)}>Mark unread</button>

@@ -3,31 +3,48 @@ import { getSession, logout } from "../lib/db.js"
 import { useStaffData } from "../lib/staffData.js"
 import { Spinner } from "../components/ui.jsx"
 import { AccountPanel, LoginScreen, NotificationBell, StaffLayout, WrongRole } from "../components/staff/Shell.jsx"
-import { OrderStats } from "../components/staff/Orders.jsx"
+import OrdersPanel, { OrderStats } from "../components/staff/Orders.jsx"
 import TransactionsPanel from "../components/staff/Transactions.jsx"
 import MessagesPanel from "../components/staff/Messages.jsx"
 import ProductsManager from "../components/staff/Products.jsx"
-import GcashSettings, { StoreToggle } from "../components/staff/Settings.jsx"
+import PaymentSettings, { StoreToggle } from "../components/staff/Settings.jsx"
+import EventsPanel from "../components/staff/Events.jsx"
 import { PanelHeader } from "../components/staff/Shell.jsx"
-import { fmtDateTime, peso } from "../lib/constants.js"
+import { STATUS_LABEL, fmtDateTime, peso } from "../lib/constants.js"
 
-function Overview({ orders }) {
+function Overview({ orders, bookings, goEvents, goOrders }) {
   const recent = orders.slice(0, 6)
+  const pendingEvents = bookings.filter((b) => b.status === "pending").length
   return (
     <div>
       <PanelHeader eyebrow="At a glance" title="Overview" />
+      {pendingEvents > 0 && (
+        <button
+          onClick={goEvents}
+          className="mb-5 flex w-full flex-wrap items-center justify-between gap-2 rounded-2xl border border-[#E4CC87] bg-[#F8EBC6] px-5 py-4 text-left text-sm text-[#6B5311]"
+        >
+          <span>
+            <strong>{pendingEvents} event {pendingEvents === 1 ? "request needs" : "requests need"} your answer</strong>
+            <span className="block text-xs opacity-80">Open the calendar to confirm or decline.</span>
+          </span>
+          <span className="text-xs font-bold uppercase tracking-[.1em]">Review →</span>
+        </button>
+      )}
       <OrderStats orders={orders} />
-      <p className="eyebrow mb-2">Recent orders</p>
+      <div className="mb-2 flex items-center justify-between">
+        <p className="eyebrow">Recent orders</p>
+        <button onClick={goOrders} className="text-[11px] font-bold uppercase tracking-[.1em] text-earth-600 underline underline-offset-4">All orders</button>
+      </div>
       <ul className="overflow-hidden rounded-2xl border border-earth-300 bg-earth-50 shadow-sm">
         {recent.length === 0 && <li className="px-5 py-12 text-center text-sm text-earth-600">No orders yet.</li>}
         {recent.map((o) => (
-          <li key={o.id} className="flex items-center justify-between gap-3 border-b border-earth-200 p-4 text-sm last:border-b-0">
-            <span>
+          <li key={o.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-earth-200 p-3 text-sm last:border-b-0 sm:p-4">
+            <span className="min-w-0">
               <strong>{o.code}</strong> · {o.customer_name}
               <span className="block text-xs text-earth-600">{fmtDateTime(o.created_at)}</span>
             </span>
-            <span className="flex items-center gap-3">
-              <span className={`badge ${o.status}`}>{o.status}</span>
+            <span className="flex shrink-0 items-center gap-3">
+              <span className={`badge ${o.status}`}>{STATUS_LABEL[o.status] || o.status}</span>
               <strong>{peso(o.total)}</strong>
             </span>
           </li>
@@ -42,10 +59,12 @@ function OwnerApp({ session, setSession, navigate, onLogout }) {
   const [tab, setTab] = useState("overview")
   const tabs = [
     { id: "overview", label: "Overview", icon: "chart" },
+    { id: "orders", label: "Orders", icon: "bag", badge: data.orders.filter((o) => o.status !== "completed" && o.status !== "cancelled").length },
     { id: "products", label: "Products", icon: "cup" },
+    { id: "events", label: "Event bookings", icon: "calendar", badge: data.bookings.filter((b) => b.status === "pending").length },
     { id: "transactions", label: "Transactions", icon: "receipt" },
     { id: "messages", label: "Messages", icon: "mail", badge: data.messages.filter((m) => !m.read).length },
-    { id: "payments", label: "GCash details", icon: "bag" },
+    { id: "payments", label: "Payment details", icon: "bag" },
     { id: "account", label: "My account", icon: "lock" },
   ]
   return (
@@ -60,7 +79,7 @@ function OwnerApp({ session, setSession, navigate, onLogout }) {
       right={
         <>
           <StoreToggle settings={data.settings} session={session} />
-          <NotificationBell notifications={data.notifications} navigate={(n) => setTab(n.type === "message" ? "messages" : "overview")} />
+          <NotificationBell notifications={data.notifications} navigate={(n) => setTab(n.type === "message" ? "messages" : n.type === "booking" ? "events" : "orders")} />
         </>
       }
     >
@@ -70,11 +89,13 @@ function OwnerApp({ session, setSession, navigate, onLogout }) {
         <p className="rounded-2xl bg-[#F3DEDB] p-6 text-sm text-[#8F3B31]">{data.error}</p>
       ) : (
         <>
-          {tab === "overview" && <Overview orders={data.orders} />}
+          {tab === "overview" && <Overview orders={data.orders} bookings={data.bookings} goEvents={() => setTab("events")} goOrders={() => setTab("orders")} />}
+          {tab === "orders" && <OrdersPanel orders={data.orders} storeOpen={data.settings.store_open?.open !== false} />}
           {tab === "products" && <ProductsManager products={data.products} />}
+          {tab === "events" && <EventsPanel bookings={data.bookings} />}
           {tab === "transactions" && <TransactionsPanel orders={data.orders} />}
           {tab === "messages" && <MessagesPanel messages={data.messages} canDelete />}
-          {tab === "payments" && <GcashSettings settings={data.settings} />}
+          {tab === "payments" && <PaymentSettings settings={data.settings} />}
           {tab === "account" && <AccountPanel session={session} onSessionChange={setSession} />}
         </>
       )}

@@ -2,18 +2,38 @@ import { Icon, PageLink } from "../components/ui.jsx"
 import { lineSummary, peso } from "../lib/constants.js"
 
 // Returns a reason string if a cart line can't be ordered right now.
-export const lineProblem = (line, products, beans) => {
+export const lineProblem = (line, products) => {
   const p = products.find((x) => x.id === line.productId)
   if (!p) return "No longer on the menu"
   if (!p.available) return "Currently sold out"
-  if (line.bean && !beans.find((b) => b.name === line.bean && b.available))
-    return `${line.bean} is unavailable`
   return ""
 }
 
-export default function CartPage({ cart, navigate, products, beans, onEdit, storeOpen }) {
-  const problems = cart.items.map((l) => lineProblem(l, products, beans))
-  const blocked = problems.some(Boolean)
+function SelectBox({ on, onChange, label }) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={on}
+      aria-label={label}
+      onClick={onChange}
+      className={`select-box ${on ? "on" : ""}`}
+    >
+      <Icon name="check" size={15} />
+    </button>
+  )
+}
+
+export default function CartPage({ cart, navigate, products, onEdit, storeOpen }) {
+  const problems = cart.items.map((l) => lineProblem(l, products))
+  const picked = cart.items.map((l) => l.selected !== false)
+
+  const selectedCount = cart.items.filter((_, i) => picked[i]).length
+  const allSelected = cart.items.length > 0 && selectedCount === cart.items.length
+  // only the items you ticked can block checkout
+  const blocked = cart.items.some((_, i) => picked[i] && problems[i])
+  const nothingSelected = selectedCount === 0
+  const leftBehind = cart.total - cart.selectedTotal
 
   return (
     <main className="min-h-[70vh] bg-earth-200">
@@ -40,28 +60,65 @@ export default function CartPage({ cart, navigate, products, beans, onEdit, stor
           ) : (
             <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
               <div>
+                {/* select-all bar */}
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-earth-300 bg-earth-50 px-4 py-3 shadow-sm">
+                  <div className="flex items-center gap-3 text-sm font-semibold">
+                    <SelectBox
+                      on={allSelected}
+                      onChange={() => cart.setAllSelected(!allSelected)}
+                      label={allSelected ? "Deselect all items" : "Select all items"}
+                    />
+                    <span
+                      className="cursor-pointer select-none"
+                      onClick={() => cart.setAllSelected(!allSelected)}
+                    >
+                      {allSelected ? "Deselect all" : "Select all"}
+                    </span>
+                  </div>
+                  <p className="text-xs text-earth-600" aria-live="polite">
+                    {selectedCount} of {cart.items.length} selected to buy
+                  </p>
+                </div>
+
                 <div className="overflow-hidden rounded-2xl border border-earth-300 bg-earth-50 shadow-md">
                   {cart.items.map((line, i) => (
                     <article
                       key={line.id}
-                      className="flex gap-3 border-b border-earth-300 p-3 last:border-b-0 sm:gap-5 sm:p-4"
+                      className={`flex gap-3 border-b border-earth-300 p-3 transition last:border-b-0 sm:gap-4 sm:p-4 ${
+                        picked[i] ? "" : "bg-earth-100/60"
+                      }`}
                     >
-                      <div className="size-[74px] shrink-0 overflow-hidden rounded-xl bg-earth-200 sm:size-24">
+                      <div className="flex items-center">
+                        <SelectBox
+                          on={picked[i]}
+                          onChange={() => cart.toggleSelect(line.id)}
+                          label={`${picked[i] ? "Deselect" : "Select"} ${line.name}`}
+                        />
+                      </div>
+                      <div
+                        className={`size-[74px] shrink-0 overflow-hidden rounded-xl bg-earth-200 sm:size-24 ${
+                          picked[i] ? "" : "opacity-60"
+                        }`}
+                      >
                         {line.image && (
                           <img src={line.image} alt={line.name} className="h-full w-full object-cover" />
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-3">
-                          <h2 className="text-sm font-semibold sm:text-base">{line.name}</h2>
-                          <p className="shrink-0 text-sm font-bold">{peso(line.unitPrice * line.qty)}</p>
+                          <h2 className={`text-sm font-semibold sm:text-base ${picked[i] ? "" : "text-earth-600"}`}>
+                            {line.name}
+                          </h2>
+                          <p className={`shrink-0 text-sm font-bold ${picked[i] ? "" : "text-earth-500 line-through"}`}>
+                            {peso(line.unitPrice * line.qty)}
+                          </p>
                         </div>
                         <p className="mt-1 text-[11px] leading-5 text-earth-600 sm:text-xs">
                           {lineSummary(line) || line.category} · {peso(line.unitPrice)} each
                         </p>
                         {problems[i] && (
                           <p className="mt-1 text-xs font-semibold text-[#8F3B31]">
-                            {problems[i]} — edit or remove this item.
+                            {problems[i]} — {picked[i] ? "edit, remove, or untick this item." : "remove it or leave it unticked."}
                           </p>
                         )}
                         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -114,28 +171,40 @@ export default function CartPage({ cart, navigate, products, beans, onEdit, stor
                 <p className="eyebrow">Order summary</p>
                 <dl className="mt-5 space-y-3 text-sm">
                   <div className="flex justify-between">
-                    <dt className="text-earth-600">Items</dt>
-                    <dd className="font-semibold">{cart.count}</dd>
+                    <dt className="text-earth-600">Items to buy</dt>
+                    <dd className="font-semibold">{cart.selectedCount}</dd>
                   </div>
+                  {leftBehind > 0 && (
+                    <div className="flex justify-between text-xs">
+                      <dt className="text-earth-600">Saved for later (not included)</dt>
+                      <dd className="font-semibold text-earth-600">{peso(leftBehind)}</dd>
+                    </div>
+                  )}
                   <div className="flex justify-between border-t border-earth-200 pt-3 text-base">
                     <dt className="font-semibold">Total</dt>
-                    <dd className="display-title text-2xl">{peso(cart.total)}</dd>
+                    <dd className="display-title text-2xl">{peso(cart.selectedTotal)}</dd>
                   </div>
                 </dl>
                 <p className="mt-4 rounded-xl bg-earth-100 p-3 text-xs leading-5 text-earth-700">
-                  We don’t deliver — orders are placed in advance and picked up at our Florencia branch.
+                  We don’t deliver — orders are placed in advance and picked up at Rookies Cafe.
                 </p>
+                {nothingSelected && (
+                  <p role="alert" className="mt-3 rounded-xl bg-[#F3DEDB] p-3 text-xs leading-5 text-[#8F3B31]">
+                    Tick at least one item above to place an order.
+                  </p>
+                )}
                 {!storeOpen && (
                   <p className="mt-3 rounded-xl bg-[#F3DEDB] p-3 text-xs leading-5 text-[#8F3B31]">
-                    The branch is closed right now, so new orders can’t be placed.
+                    The cafe is closed right now, so new orders can’t be placed.
                   </p>
                 )}
                 <button
-                  disabled={blocked || !storeOpen}
+                  disabled={blocked || !storeOpen || nothingSelected}
                   onClick={() => navigate("/checkout")}
                   className="primary-button mt-5 w-full disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Proceed to order <Icon name="arrow" size={17} />
+                  Proceed to order{selectedCount > 0 ? ` (${cart.selectedCount})` : ""}{" "}
+                  <Icon name="arrow" size={17} />
                 </button>
               </aside>
             </div>

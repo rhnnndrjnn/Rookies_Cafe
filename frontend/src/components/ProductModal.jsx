@@ -1,34 +1,41 @@
 import { useMemo, useState } from "react"
 import { Chip, Icon, Modal } from "./ui.jsx"
-import { ADDONS, ADDON_PRICE, SUGAR_LEVELS, peso, unitPrice } from "../lib/constants.js"
+import {
+  ADDONS,
+  HOT_SIZE,
+  SIZES,
+  DEFAULT_SUGAR,
+  SUGAR_LEVELS,
+  addonPrice,
+  isDrinkCategory,
+  peso,
+  unitPrice,
+} from "../lib/constants.js"
 
 // Opens when the "+" button is pressed. Also used to edit a line already in the cart.
-export default function ProductModal({ product, beans, line, onClose, onSubmit }) {
-  const isCoffee = product?.category === "Coffee"
-  const isDrink = ["Coffee", "Milktea", "Frappe", "Fruit Tea"].includes(product?.category)
-  const hotAllowed = isCoffee && product?.has_hot !== false
+export default function ProductModal({ product, line, onClose, onSubmit }) {
+  // Every category except Snacks is a drink and gets sugar level / size / add-ons.
+  const isDrink = isDrinkCategory(product?.category)
+  const hotAllowed = isDrink && !!product?.has_hot
 
-  const firstBean = beans.find((b) => b.available)?.name || ""
-  const [bean, setBean] = useState(line?.bean || firstBean)
-  const [sugar, setSugar] = useState(line?.sugar ?? 100)
-  const [temp, setTemp] = useState(line?.temp || (isCoffee ? "Iced" : ""))
-  const [size, setSize] = useState(line?.size && line.size !== "12oz" ? line.size : "16oz")
+  const [sugar, setSugar] = useState(line?.sugar ?? DEFAULT_SUGAR)
+  const [temp, setTemp] = useState(line?.temp === "Hot" && hotAllowed ? "Hot" : "Iced")
+  const [size, setSize] = useState(SIZES.includes(line?.size) ? line.size : SIZES[0])
   const [addons, setAddons] = useState(line?.addons || [])
   const [qty, setQty] = useState(line?.qty || 1)
 
-  const isHot = temp === "Hot"
-  const effectiveSize = !isDrink ? undefined : isHot ? "12oz" : size
+  const isHot = isDrink && temp === "Hot"
+  const effectiveSize = !isDrink ? undefined : isHot ? HOT_SIZE : size
+
+  // Hot drinks are a single 8oz size and priced at the base (16oz) price.
   const price = useMemo(
-    () => unitPrice(product, effectiveSize === "22oz" ? "22oz" : "16oz", addons),
-    [product, effectiveSize, addons],
+    () => unitPrice(product, effectiveSize === "22oz" ? "22oz" : "16oz", isDrink ? addons : []),
+    [product, effectiveSize, addons, isDrink],
   )
 
   const addonOptions = ADDONS[product?.category] || []
   const toggleAddon = (a) =>
     setAddons((cur) => (cur.includes(a) ? cur.filter((x) => x !== a) : [...cur, a]))
-
-  const noBeans = isCoffee && !firstBean
-  const beanInvalid = isCoffee && (!bean || !beans.find((b) => b.name === bean && b.available))
 
   const submit = () => {
     onSubmit({
@@ -36,11 +43,10 @@ export default function ProductModal({ product, beans, line, onClose, onSubmit }
       name: product.name,
       image: product.image,
       category: product.category,
-      bean: isCoffee ? bean : undefined,
       sugar: isDrink ? sugar : undefined,
-      temp: isCoffee ? temp : undefined,
+      temp: isDrink ? temp : undefined,
       size: effectiveSize,
-      addons,
+      addons: isDrink ? addons : [],
       qty,
       unitPrice: price,
     })
@@ -73,43 +79,36 @@ export default function ProductModal({ product, beans, line, onClose, onSubmit }
           <div className="space-y-6 p-5 sm:p-7">
             {product.detail && <p className="text-sm leading-6 text-earth-600">{product.detail}</p>}
 
-            {isCoffee && (
-              <section>
-                <p className="opt-label mb-3">Type of bean</p>
-                <div className="flex flex-wrap gap-2">
-                  {beans.map((b) => (
-                    <Chip
-                      key={b.id}
-                      active={bean === b.name}
-                      disabled={!b.available}
-                      title={b.available ? "" : "Currently unavailable"}
-                      onClick={() => setBean(b.name)}
-                    >
-                      {b.name}
-                    </Chip>
-                  ))}
-                </div>
-                {noBeans && (
-                  <p className="mt-2 text-xs text-[#8F3B31]">
-                    All coffee beans are currently unavailable.
-                  </p>
-                )}
-              </section>
-            )}
-
-            {isCoffee && (
+            {hotAllowed && (
               <section>
                 <p className="opt-label mb-3">Serving</p>
                 <div className="flex flex-wrap gap-2">
                   <Chip active={temp === "Iced"} onClick={() => setTemp("Iced")}>
                     Iced
                   </Chip>
-                  {hotAllowed && (
-                    <Chip active={temp === "Hot"} onClick={() => setTemp("Hot")}>
-                      Hot · 12oz only
-                    </Chip>
-                  )}
+                  <Chip active={temp === "Hot"} onClick={() => setTemp("Hot")}>
+                    Hot · {HOT_SIZE} only
+                  </Chip>
                 </div>
+              </section>
+            )}
+
+            {isDrink && (
+              <section>
+                <p className="opt-label mb-3">Size</p>
+                {isHot ? (
+                  <p className="rounded-xl bg-earth-100 px-4 py-3 text-xs leading-5 text-earth-700">
+                    Hot drinks are served in {HOT_SIZE} only. Choose “Iced” to pick 16oz or 22oz.
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {SIZES.map((s) => (
+                      <Chip key={s} active={size === s} onClick={() => setSize(s)}>
+                        {s} · {peso(unitPrice(product, s))}
+                      </Chip>
+                    ))}
+                  </div>
+                )}
               </section>
             )}
 
@@ -118,21 +117,8 @@ export default function ProductModal({ product, beans, line, onClose, onSubmit }
                 <p className="opt-label mb-3">Sugar level</p>
                 <div className="flex flex-wrap gap-2">
                   {SUGAR_LEVELS.map((s) => (
-                    <Chip key={s} active={sugar === s} onClick={() => setSugar(s)}>
-                      {s}%
-                    </Chip>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {isDrink && !isHot && (
-              <section>
-                <p className="opt-label mb-3">Size</p>
-                <div className="flex flex-wrap gap-2">
-                  {["16oz", "22oz"].map((s) => (
-                    <Chip key={s} active={size === s} onClick={() => setSize(s)}>
-                      {s} · {peso(unitPrice(product, s))}
+                    <Chip key={s.value} active={sugar === s.value} onClick={() => setSugar(s.value)}>
+                      {s.label}
                     </Chip>
                   ))}
                 </div>
@@ -141,11 +127,16 @@ export default function ProductModal({ product, beans, line, onClose, onSubmit }
 
             {isDrink && addonOptions.length > 0 && (
               <section>
-                <p className="opt-label mb-3">Add-ons · +{peso(ADDON_PRICE)} each</p>
+                <div className="mb-3 flex items-baseline justify-between gap-3">
+                  <p className="opt-label">Add-ons</p>
+                  <p className="text-[11px] text-earth-600">
+                    {addons.length ? `${addons.length} selected` : "Optional"}
+                  </p>
+                </div>
                 <div className="flex flex-wrap gap-2">
                   {addonOptions.map((a) => (
                     <Chip key={a} active={addons.includes(a)} onClick={() => toggleAddon(a)}>
-                      {a}
+                      {a} · +{peso(addonPrice(a))}
                     </Chip>
                   ))}
                 </div>
@@ -170,11 +161,7 @@ export default function ProductModal({ product, beans, line, onClose, onSubmit }
                   <Icon name="plus" size={16} />
                 </button>
               </div>
-              <button
-                onClick={submit}
-                disabled={noBeans || beanInvalid}
-                className="primary-button flex-1 disabled:cursor-not-allowed disabled:opacity-50"
-              >
+              <button onClick={submit} className="primary-button flex-1">
                 {line ? "Update item" : "Add to cart"} · {peso(price * qty)}
               </button>
             </div>
