@@ -661,7 +661,7 @@ export const BOOKING_POLICIES = [
     items: [
       "Clients must finalize their drink selections before the event.",
       "Each package has a specified number of Classic and Premium flavor selections.",
-      "Additional premium flavors from our menu may cost ₱300 per flavor selection.",
+      "Additional Premium flavors from our menu may cost ₱300 per flavor selection.",
       "Additional Classic flavors on your menu may cost ₱150 each selection.",
       "Flavor selections are subject to availability and confirmation upon booking.",
       "Hot drinks are available for selected flavors only.",
