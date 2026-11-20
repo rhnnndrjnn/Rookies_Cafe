@@ -1,12 +1,13 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { FieldMessage, Icon, Input, Modal } from "../ui.jsx"
 import { DEFAULT_CATEGORY_LIST, FRIES_SHARING_DEFAULT, SIZE_UPCHARGE, isDrinkCategory, isFries, peso, resolveCategories } from "../../lib/constants.js"
-import { deleteProduct, saveProduct, setSetting, uploadImage } from "../../lib/db.js"
+import { deleteProduct, reorderProducts, saveProduct, setSetting, uploadImage } from "../../lib/db.js"
 import { useNotify } from "../../lib/notify.jsx"
 import { rules, useLiveForm } from "../../lib/validate.js"
 import { PanelHeader, Switch } from "./Shell.jsx"
 
-const blank = { name: "", detail: "", price: "", price_22: "", category: DEFAULT_CATEGORY_LIST[0].name, image: "", available: true, has_hot: false }
+const PRODUCT_BADGES = ["New", "Best Seller", "Must Try", "For Sharing"]
+const blank = { name: "", detail: "", price: "", price_22: "", category: DEFAULT_CATEGORY_LIST[0].name, image: "", available: true, has_hot: false, badge: null }
 
 const RULES = {
   name: rules.required("Product name"),
@@ -136,6 +137,14 @@ function ProductForm({ product, categories, onClose }) {
           </label>
         )}
       </div>
+      <label className="block">
+        <span className="opt-label">Product label (optional)</span>
+        <select value={f.badge || ""} onChange={(e) => set("badge", e.target.value || null)} className="input-box mt-2">
+          <option value="">No label</option>
+          {PRODUCT_BADGES.map((badge) => <option key={badge} value={badge}>{badge}</option>)}
+        </select>
+        <span className="mt-1 block text-[11px] text-earth-600">Shown as a small label on the customer menu.</span>
+      </label>
       <div>
         <span className="opt-label">Image</span>
         <div className="mt-2 flex items-center gap-3">
@@ -272,8 +281,34 @@ export default function ProductsManager({ products, settings }) {
   const [editing, setEditing] = useState(null) // product | {} (new) | null
   const [filter, setFilter] = useState("All")
   const [managing, setManaging] = useState(false)
+  const [draggedId, setDraggedId] = useState(null)
+  const [savingOrder, setSavingOrder] = useState(false)
+  const [orderedProducts, setOrderedProducts] = useState(products)
   const categories = resolveCategories(settings, products)
-  const list = products.filter((p) => filter === "All" || p.category === filter)
+  useEffect(() => setOrderedProducts(products), [products])
+  const list = orderedProducts.filter((p) => filter === "All" || p.category === filter)
+
+  const dropProduct = async (targetId) => {
+    if (!draggedId || draggedId === targetId || filter !== "All") return
+    const reordered = [...orderedProducts]
+    const from = reordered.findIndex((p) => p.id === draggedId)
+    const to = reordered.findIndex((p) => p.id === targetId)
+    if (from < 0 || to < 0) return
+    const [moved] = reordered.splice(from, 1)
+    reordered.splice(to, 0, moved)
+    setOrderedProducts(reordered)
+    setDraggedId(null)
+    setSavingOrder(true)
+    try {
+      await reorderProducts(reordered.map((p) => p.id))
+      notify("Product order saved", "Customers will see this order too.", { tone: "success" })
+    } catch (e) {
+      setOrderedProducts(products)
+      notify("Could not save product order", e.message, { tone: "error" })
+    } finally {
+      setSavingOrder(false)
+    }
+  }
 
   const remove = async (p) => {
     if (!window.confirm(`Delete “${p.name}”? Past orders keep their record.`)) return
@@ -300,13 +335,30 @@ export default function ProductsManager({ products, settings }) {
           <button key={c} onClick={() => setFilter(c)} className={`chip whitespace-nowrap ${filter === c ? "chip-active" : ""}`}>{c}</button>
         ))}
       </div>
+      <p className="mb-3 text-xs text-earth-600">
+        {savingOrder ? "Saving menu order…" : filter === "All" ? "Drag products using the handle to change their order. New products appear at the top automatically." : "Switch to All to rearrange the full menu."}
+      </p>
       <ul className="overflow-hidden rounded-2xl border border-earth-300 bg-earth-50 shadow-sm">
         {list.length === 0 && <li className="px-5 py-14 text-center text-sm text-earth-600">No products in this category.</li>}
         {list.map((p) => (
-          <li key={p.id} className="flex items-center gap-2 border-b border-earth-200 p-2.5 last:border-b-0 sm:gap-3 sm:p-3">
+          <li
+            key={p.id}
+            draggable={filter === "All" && !savingOrder}
+            onDragStart={() => setDraggedId(p.id)}
+            onDragOver={(e) => { if (filter === "All") e.preventDefault() }}
+            onDrop={(e) => { e.preventDefault(); dropProduct(p.id) }}
+            onDragEnd={() => setDraggedId(null)}
+            className={`flex items-center gap-2 border-b border-earth-200 p-2.5 last:border-b-0 sm:gap-3 sm:p-3 ${draggedId === p.id ? "opacity-40" : ""}`}
+          >
+            <button type="button" className={`grid size-8 shrink-0 place-items-center rounded-lg text-earth-600 ${filter === "All" ? "cursor-grab active:cursor-grabbing hover:bg-earth-200" : "opacity-30"}`} title="Drag to reorder" aria-label={`Drag ${p.name} to reorder`} disabled={filter !== "All" || savingOrder}>
+              <span className="text-xl leading-none">⠿</span>
+            </button>
             <img src={p.image} alt="" className="size-14 shrink-0 rounded-lg bg-earth-200 object-cover" />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold">{p.name}</p>
+              <div className="flex min-w-0 items-center gap-2">
+                <p className="truncate text-sm font-semibold">{p.name}</p>
+                {p.badge && <span className="shrink-0 rounded-full bg-earth-200 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-earth-700">{p.badge}</span>}
+              </div>
               <p className="truncate text-xs text-earth-600">
                 {p.category} · {peso(p.price)}{p.price_22 ? ` / ${peso(p.price_22)}` : ""}
                 {!p.available && <span className="ml-2 font-bold text-[#8F3B31]">SOLD OUT</span>}

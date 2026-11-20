@@ -117,7 +117,14 @@ export default function MenuPage({ products, categories, loading, error, query, 
                         {item.category}
                       </p>
                     )}
-                    <h2 className="truncate text-sm font-semibold sm:text-base">{item.name}</h2>
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                      <h2 className="truncate text-sm font-semibold sm:text-base">{item.name}</h2>
+                      {item.badge && (
+                        <span className="shrink-0 rounded-full bg-earth-700 px-2.5 py-1 text-[8px] font-bold uppercase tracking-[.12em] text-earth-50">
+                          {item.badge}
+                        </span>
+                      )}
+                    </div>
                     <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-earth-600 sm:text-xs sm:leading-5">
                       {item.detail}
                     </p>

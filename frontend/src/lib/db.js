@@ -175,9 +175,58 @@ export function subscribe(tables, cb) {
 /* ------------------------------------------------------------------ */
 /* Products                                                            */
 /* ------------------------------------------------------------------ */
-export const getProducts = () => list("products", { order: "created_at", asc: true })
-export const saveProduct = (product) =>
-  product.id ? update("products", product.id, product) : insert("products", product)
+export async function getProducts() {
+  requireDatabase()
+  if (isDemo) {
+    return [...(readLocal("products") || [])].sort((a, b) => {
+      const A = a.sort_order ?? 0
+      const B = b.sort_order ?? 0
+      return A - B || String(b.created_at || "").localeCompare(String(a.created_at || ""))
+    })
+  }
+  const { data, error } = await supabase
+    .from("products")
+    .select("*")
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: false })
+  if (error) throw error
+  return data
+}
+
+export async function saveProduct(product) {
+  // Newly added or edited products move to the top automatically. The owner can
+  // still drag them to another position afterwards.
+  const current = await getProducts()
+  const minOrder = current.reduce((min, p) => Math.min(min, Number(p.sort_order ?? 0)), 0)
+  const nextOrder = minOrder - 1
+  if (product.id) {
+    return update("products", product.id, { ...product, sort_order: nextOrder, badge: product.badge || null })
+  }
+  return insert("products", { ...product, sort_order: nextOrder, badge: product.badge || null })
+}
+
+/** Owner: persist the exact product order shared by every browser. */
+export async function reorderProducts(orderedIds) {
+  requireDatabase()
+  if (!Array.isArray(orderedIds) || !orderedIds.length) return
+  if (isDemo) {
+    const positions = new Map(orderedIds.map((id, index) => [id, index]))
+    const rows = (readLocal("products") || []).map((p) =>
+      positions.has(p.id) ? { ...p, sort_order: positions.get(p.id) } : p,
+    )
+    writeLocal("products", rows)
+    emit("products", { type: "UPDATE", row: { reordered: true } })
+    return
+  }
+  const results = await Promise.all(
+    orderedIds.map((id, index) =>
+      supabase.from("products").update({ sort_order: index }).eq("id", id),
+    ),
+  )
+  const failed = results.find((result) => result.error)
+  if (failed?.error) throw failed.error
+}
+
 export const deleteProduct = (id) => remove("products", id)
 export const setProductAvailable = (id, available) => update("products", id, { available })
 

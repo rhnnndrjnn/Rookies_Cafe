@@ -37,3 +37,13 @@ Checkout copies the order text and opens Messenger. Add the Facebook page's user
 Customer carts are intentionally local to each customer's browser until checkout. A placed order is stored in the shared Supabase `public.orders` table; owner transaction views read, update, and delete those same rows. Bookings, messages, notifications, products, and settings are also stored in Supabase. Owner deletions/updates therefore apply to all browsers, not just the current browser.
 
 For an existing Supabase project, run `supabase/migration_v7.sql` once in Supabase Dashboard → SQL Editor, then redeploy the frontend on Vercel. This migration preserves existing business records. Do not put a Supabase service-role/secret key in Vercel frontend variables; use only the project URL and publishable/anon key.
+
+
+## Product menu ordering and labels (v8)
+
+For an existing Supabase project, run `supabase/migration_v8.sql` once in the Supabase SQL Editor.
+This adds the shared product ordering and optional product label fields. Existing products are
+initialized newest-first. New or edited products move to the top automatically, and the owner
+can drag products in Owner Dashboard → Products to save a custom order for all customers.
+
+Optional product labels: `New`, `Best Seller`, `Must Try`, and `For Sharing`.
