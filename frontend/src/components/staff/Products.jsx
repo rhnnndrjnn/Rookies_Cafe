@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { FieldMessage, Icon, Input, Modal } from "../ui.jsx"
-import { DEFAULT_CATEGORY_LIST, FRIES_SHARING_DEFAULT, SIZE_UPCHARGE, addonPrice, addonsFor, isDrinkCategory, isFries, peso, resolveCategories } from "../../lib/constants.js"
+import { DEFAULT_CATEGORY_LIST, DEFAULT_MENU_ADDONS, FRIES_SHARING_DEFAULT, SIZE_UPCHARGE, isDrinkCategory, isFries, peso, resolveCategories } from "../../lib/constants.js"
 import { deleteProduct, reorderProducts, saveProduct, setSetting, uploadImage } from "../../lib/db.js"
 import { useNotify } from "../../lib/notify.jsx"
 import { rules, useLiveForm } from "../../lib/validate.js"
@@ -22,9 +22,6 @@ function ProductForm({ product, categories, onClose }) {
     ...product,
     price: product?.price != null ? String(product.price) : "",
     price_22: product?.price_22 != null ? String(product.price_22) : "",
-    addons: Array.isArray(product?.addons)
-      ? product.addons.map((a) => typeof a === "string" ? { name: a, price: addonPrice(a) } : { name: a.name || "", price: Number(a.price ?? 0) })
-      : addonsFor(product || blank, categories).map((name) => ({ name, price: addonPrice(name) })),
   }))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
@@ -51,13 +48,6 @@ function ProductForm({ product, categories, onClose }) {
     form.touchAll()
     if (!form.valid) return setError("Please fix the highlighted fields first.")
     const price = Number(f.price)
-    const addons = (f.addons || [])
-      .map((a) => ({ name: String(a.name || "").trim(), price: Number(a.price) }))
-      .filter((a) => a.name)
-    if (addons.some((a) => !Number.isFinite(a.price) || a.price < 0))
-      return setError("Each add-on must have a valid price of zero or more.")
-    if (new Set(addons.map((a) => a.name.toLowerCase())).size !== addons.length)
-      return setError("Add-on names must be unique for this product.")
     const payload = {
       ...(product?.id ? { id: product.id } : {}),
       name: f.name.trim(),
@@ -73,7 +63,6 @@ function ProductForm({ product, categories, onClose }) {
       available: f.available,
       has_hot: isDrink ? !!f.has_hot : false,
       badge: f.badge || null,
-      addons,
     }
     setBusy(true)
     try {
@@ -157,34 +146,6 @@ function ProductForm({ product, categories, onClose }) {
         </select>
         <span className="mt-1 block text-[11px] text-earth-600">Shown as a small label on the customer menu.</span>
       </label>
-      <section className="space-y-3 rounded-2xl border border-earth-200 bg-earth-100 p-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <p className="opt-label">Product add-ons</p>
-            <p className="mt-1 text-[11px] text-earth-600">Set the add-on names and extra prices customers can choose.</p>
-          </div>
-          <button type="button" className="btn-sm" onClick={() => set("addons", [...(f.addons || []), { name: "", price: 0 }])}>
-            <Icon name="plus" size={14} /> Add add-on
-          </button>
-        </div>
-        {(f.addons || []).length === 0 && <p className="rounded-xl bg-earth-50 p-3 text-xs text-earth-600">No add-ons for this product.</p>}
-        {(f.addons || []).map((addon, index) => (
-          <div key={index} className="grid grid-cols-[minmax(0,1fr)_112px_36px] items-end gap-2">
-            <label className="min-w-0">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-earth-600">Name</span>
-              <input value={addon.name} onChange={(e) => set("addons", f.addons.map((a, i) => i === index ? { ...a, name: e.target.value } : a))} maxLength={40} placeholder="e.g. Extra cheese" className="input-box mt-1" />
-            </label>
-            <label>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-earth-600">Extra ₱</span>
-              <input type="number" min="0" step="0.01" value={addon.price} onChange={(e) => set("addons", f.addons.map((a, i) => i === index ? { ...a, price: e.target.value } : a))} className="input-box mt-1" />
-            </label>
-            <button type="button" className="btn-sm danger !h-10 !px-2" onClick={() => set("addons", f.addons.filter((_, i) => i !== index))} aria-label={`Remove add-on ${addon.name || index + 1}`}>
-              <Icon name="trash" size={14} />
-            </button>
-          </div>
-        ))}
-        <p className="text-[10px] text-earth-600">Changes are saved with this product and shown to customers after the product is saved.</p>
-      </section>
       <div>
         <span className="opt-label">Image</span>
         <div className="mt-2 flex items-center gap-3">
@@ -316,10 +277,95 @@ function CategoryManager({ categories, products, onClose }) {
   )
 }
 
+function SharedAddonsManager({ settings }) {
+  const notify = useNotify()
+  const [group, setGroup] = useState("drinks")
+  const [items, setItems] = useState(() => ({
+    drinks: (settings?.menu_addons?.drinks || DEFAULT_MENU_ADDONS.drinks).map((a) => ({ ...a })),
+    snacks: (settings?.menu_addons?.snacks || DEFAULT_MENU_ADDONS.snacks).map((a) => ({ ...a })),
+  }))
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState("")
+  const current = items[group] || []
+
+  useEffect(() => {
+    setItems({
+      drinks: (settings?.menu_addons?.drinks || DEFAULT_MENU_ADDONS.drinks).map((a) => ({ ...a })),
+      snacks: (settings?.menu_addons?.snacks || DEFAULT_MENU_ADDONS.snacks).map((a) => ({ ...a })),
+    })
+  }, [settings?.menu_addons])
+
+  const update = (next) => setItems((old) => ({ ...old, [group]: next }))
+  const save = async () => {
+    setError("")
+    for (const key of ["drinks", "snacks"]) {
+      const names = items[key].map((a) => a.name.trim().toLowerCase()).filter(Boolean)
+      if (new Set(names).size !== names.length) return setError(`Add-on names in ${key} must be unique.`)
+      if (items[key].some((a) => !a.name.trim() || !Number.isFinite(Number(a.price)) || Number(a.price) < 0))
+        return setError(`Check the names and prices in ${key}.`)
+    }
+    setBusy(true)
+    try {
+      const clean = Object.fromEntries(["drinks", "snacks"].map((key) => [key, items[key].map((a) => ({ name: a.name.trim(), price: Number(a.price), available: a.available !== false }))]))
+      await setSetting("menu_addons", clean)
+      notify("Add-ons saved", "Customers will see the updated available options.", { tone: "success" })
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <p className="text-sm text-earth-600">Manage shared add-ons once here. Changes apply to every matching product and customer browser.</p>
+        <div className="mt-4 flex rounded-full border border-earth-300 bg-earth-100 p-1" role="tablist" aria-label="Add-on groups">
+          {[{ id: "drinks", label: "Drinks" }, { id: "snacks", label: "Snacks" }].map((tab) => (
+            <button key={tab.id} type="button" role="tab" aria-selected={group === tab.id} onClick={() => setGroup(tab.id)} className={`flex-1 rounded-full px-4 py-2.5 text-sm font-semibold transition ${group === tab.id ? "bg-earth-700 text-earth-50" : "text-earth-700 hover:bg-earth-200"}`}>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="space-y-3">
+        {current.map((addon, index) => (
+          <div key={`${group}-${index}`} className={`rounded-2xl border p-3 ${addon.available === false ? "border-earth-200 bg-earth-100 opacity-70" : "border-earth-300 bg-earth-50"}`}>
+            <div className="grid grid-cols-[minmax(0,1fr)_112px] gap-2">
+              <label className="min-w-0">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-earth-600">Add-on name</span>
+                <input value={addon.name} onChange={(e) => update(current.map((a, i) => i === index ? { ...a, name: e.target.value } : a))} maxLength={40} placeholder="e.g. Extra cheese" className="input-box mt-1" />
+              </label>
+              <label>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-earth-600">Extra ₱</span>
+                <input type="number" min="0" step="0.01" value={addon.price} onChange={(e) => update(current.map((a, i) => i === index ? { ...a, price: e.target.value } : a))} className="input-box mt-1" />
+              </label>
+            </div>
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <label className="flex items-center gap-2 text-xs font-semibold">
+                <Switch on={addon.available !== false} onChange={(v) => update(current.map((a, i) => i === index ? { ...a, available: v } : a))} label={`Make ${addon.name || "add-on"} available`} />
+                {addon.available === false ? "Unavailable" : "Available to customers"}
+              </label>
+              <button type="button" className="btn-sm danger" onClick={() => update(current.filter((_, i) => i !== index))} aria-label={`Delete ${addon.name}`}><Icon name="trash" size={14} /> Delete</button>
+            </div>
+          </div>
+        ))}
+        {current.length === 0 && <p className="rounded-xl bg-earth-100 p-4 text-sm text-earth-600">No {group} add-ons yet. Add one below.</p>}
+      </div>
+      <button type="button" className="btn-sm" onClick={() => update([...current, { name: "", price: 0, available: true }])}><Icon name="plus" size={14} /> Add {group === "drinks" ? "drink" : "snack"} add-on</button>
+      {error && <p role="alert" className="rounded-xl bg-[#F3DEDB] p-3 text-xs text-[#8F3B31]">{error}</p>}
+      <div className="flex justify-end border-t border-earth-200 pt-4">
+        <button type="button" disabled={busy} onClick={save} className="btn-sm solid">{busy ? "Saving…" : "Save add-ons"}</button>
+      </div>
+    </div>
+  )
+}
+
 export default function ProductsManager({ products, settings }) {
   const notify = useNotify()
   const [editing, setEditing] = useState(null) // product | {} (new) | null
   const [filter, setFilter] = useState("All")
+  const [section, setSection] = useState("products")
   const [managing, setManaging] = useState(false)
   const [draggedId, setDraggedId] = useState(null)
   const [savingOrder, setSavingOrder] = useState(false)
@@ -362,14 +408,17 @@ export default function ProductsManager({ products, settings }) {
 
   return (
     <div>
-      <PanelHeader eyebrow="Menu" title="Products">
-        <button className="btn-sm" onClick={() => setManaging(true)}>
-          <Icon name="edit" size={14} /> Categories
-        </button>
-        <button className="btn-sm solid" onClick={() => setEditing({})}>
-          <Icon name="plus" size={14} /> Add product
-        </button>
+      <PanelHeader eyebrow="Menu" title={section === "products" ? "Products" : "Add-ons"}>
+        {section === "products" && <>
+          <button className="btn-sm" onClick={() => setManaging(true)}><Icon name="edit" size={14} /> Categories</button>
+          <button className="btn-sm solid" onClick={() => setEditing({})}><Icon name="plus" size={14} /> Add product</button>
+        </>}
       </PanelHeader>
+      <div className="mb-5 flex gap-2 border-b border-earth-300" role="tablist" aria-label="Product management sections">
+        <button type="button" role="tab" aria-selected={section === "products"} onClick={() => setSection("products")} className={`border-b-2 px-4 py-3 text-sm font-bold ${section === "products" ? "border-earth-700 text-earth-900" : "border-transparent text-earth-500"}`}>Products</button>
+        <button type="button" role="tab" aria-selected={section === "addons"} onClick={() => setSection("addons")} className={`border-b-2 px-4 py-3 text-sm font-bold ${section === "addons" ? "border-earth-700 text-earth-900" : "border-transparent text-earth-500"}`}>Add-ons</button>
+      </div>
+      {section === "addons" ? <SharedAddonsManager settings={settings} /> : <>
       <div className="no-scrollbar mb-4 flex gap-2 overflow-x-auto">
         {["All", ...categories.map((c) => c.name)].map((c) => (
           <button key={c} onClick={() => setFilter(c)} className={`chip whitespace-nowrap ${filter === c ? "chip-active" : ""}`}>{c}</button>
@@ -419,6 +468,7 @@ export default function ProductsManager({ products, settings }) {
       <Modal open={managing} onClose={() => setManaging(false)} label="Manage categories">
         {managing && <CategoryManager categories={categories} products={products} onClose={() => setManaging(false)} />}
       </Modal>
+      </>}
     </div>
   )
 }

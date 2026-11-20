@@ -13,6 +13,7 @@ export function useMenuData() {
     events: null,
     home: null,
     contacts: null,
+    menu_addons: null,
   })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")

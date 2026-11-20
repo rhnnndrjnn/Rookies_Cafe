@@ -110,6 +110,7 @@ function CustomerSite({ route, navigate }) {
           key={modal.line?.id || modal.product.id}
           product={modal.product}
           categories={categories}
+          menuAddons={menu.settings.menu_addons}
           line={modal.line}
             onClose={() => setModal(null)}
           onSubmit={submitModal}

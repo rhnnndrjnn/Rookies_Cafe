@@ -18,7 +18,7 @@ import {
 } from "../lib/constants.js"
 
 // Opens when the "+" button is pressed. Also used to edit a line already in the cart.
-export default function ProductModal({ product, line, categories, onClose, onSubmit }) {
+export default function ProductModal({ product, line, categories, menuAddons, onClose, onSubmit }) {
   // Every category except Snacks is a drink and gets sugar level / size / add-ons.
   const isDrink = isDrinkCategory(product?.category, categories)
   const hotAllowed = isDrink && !!product?.has_hot
@@ -39,17 +39,18 @@ export default function ProductModal({ product, line, categories, onClose, onSub
   const effectiveSize = !isDrink ? undefined : isHot ? HOT_SIZE : size
 
   // Hot drinks are a single 8oz size and priced at the base (16oz) price.
-  // Drinks have their own add-ons; Nachos & Cheesy Fries can add Beef / Cheese / Veggies (₱30 each).
-  const addonOptions = addonsFor(product, categories)
+  // The owner-managed Drinks or Snacks add-on list is shared across matching products.
+  const addonOptions = addonsFor(product, categories, menuAddons)
   const activeAddons = addons.filter((a) => addonOptions.includes(a))
 
   const price = useMemo(
     () =>
-      fries
+      (fries
         ? friesPrice(product, serving || "Solo")
-        : unitPrice(product, effectiveSize === "22oz" ? "22oz" : "16oz", activeAddons),
+        : (effectiveSize === "22oz" ? Number(product.price_22 ?? Number(product.price) + 35) : Number(product.price)))
+        + activeAddons.reduce((sum, a) => sum + addonPrice(a, product, menuAddons, categories), 0),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [product, effectiveSize, addons, fries, serving],
+    [product, effectiveSize, addons, fries, serving, menuAddons, categories],
   )
 
   const toggleAddon = (a) =>
@@ -189,7 +190,7 @@ export default function ProductModal({ product, line, categories, onClose, onSub
                 <div className="flex flex-wrap gap-2">
                   {addonOptions.map((a) => (
                     <Chip key={a} active={addons.includes(a)} onClick={() => toggleAddon(a)}>
-                      {a} · +{peso(addonPrice(a, product))}
+                      {a} · +{peso(addonPrice(a, product, menuAddons, categories))}
                     </Chip>
                   ))}
                 </div>

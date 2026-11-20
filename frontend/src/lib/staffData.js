@@ -28,6 +28,7 @@ export function useStaffData() {
     home: null,
     contacts: null,
     booking_policy: null,
+    menu_addons: null,
   })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")

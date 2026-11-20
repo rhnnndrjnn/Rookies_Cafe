@@ -164,9 +164,28 @@ const DRINK_ADDONS = [
   "Sea salt cream",
 ];
 /** Add-ons offered for a product: drinks get the drink add-ons, nachos / cheesy fries get Beef · Cheese · Veggies. */
-export const addonsFor = (product, categories) => {
-  // A saved per-product list takes precedence. null/undefined keeps the original
-  // defaults for existing products, so the migration does not change old menus.
+export const DEFAULT_MENU_ADDONS = {
+  drinks: [
+    { name: "Espresso shot", price: 25, available: true },
+    { name: "Syrup / Sauce", price: 20, available: true },
+    { name: "Milk", price: 25, available: true },
+    { name: "Whipped cream", price: 30, available: true },
+    { name: "Sea salt cream", price: 30, available: true },
+  ],
+  snacks: [
+    { name: "Beef", price: 30, available: true },
+    { name: "Cheese", price: 30, available: true },
+    { name: "Veggies", price: 30, available: true },
+  ],
+};
+
+/** Shared owner-managed add-ons. When configured, these lists replace legacy per-product defaults. */
+export const addonsFor = (product, categories, menuAddons) => {
+  if (menuAddons && (Array.isArray(menuAddons.drinks) || Array.isArray(menuAddons.snacks))) {
+    const group = isDrinkCategory(product?.category, categories) ? "drinks" : "snacks";
+    return (menuAddons[group] || []).filter((a) => a && a.available !== false).map((a) => a.name).filter(Boolean);
+  }
+  // A saved per-product list takes precedence for older menus until the owner saves shared add-ons.
   if (Array.isArray(product?.addons)) {
     return product.addons
       .map((addon) => (typeof addon === "string" ? addon : addon?.name))
@@ -260,7 +279,12 @@ export const atCounter = (method) => !needsReceipt(method);
 export const peso = (n) => `₱${Number(n || 0).toFixed(2)}`;
 export const pesoWhole = (n) => `₱${Number(n || 0).toLocaleString("en-PH")}`;
 
-export const addonPrice = (name, product) => {
+export const addonPrice = (name, product, menuAddons, categories) => {
+  if (menuAddons) {
+    const group = isDrinkCategory(product?.category, categories) ? "drinks" : "snacks";
+    const shared = (menuAddons[group] || []).find((addon) => addon?.name === name && addon.available !== false);
+    if (shared && Number.isFinite(Number(shared.price))) return Number(shared.price);
+  }
   if (Array.isArray(product?.addons)) {
     const saved = product.addons.find((addon) =>
       (typeof addon === "string" ? addon : addon?.name) === name,

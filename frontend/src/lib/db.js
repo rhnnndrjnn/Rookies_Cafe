@@ -252,6 +252,7 @@ export async function getSettings() {
     home: null, // owner's Home-page content (null = defaults)
     contacts: null, // owner's Contacts-page content (null = defaults)
     booking_policy: null, // owner-editable booking policies (null = defaults)
+    menu_addons: null, // shared owner-managed Drinks / Snacks add-ons
   }
   rows.forEach((r) => (out[r.key] = r.value))
   return out
