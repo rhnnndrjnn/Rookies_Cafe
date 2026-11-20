@@ -134,8 +134,9 @@ async function update(table, id, patch) {
     if (updated) emit(table, { type: "UPDATE", row: updated })
     return updated
   }
-  const { error } = await supabase.from(table).update(patch).eq("id", id)
+  const { data, error } = await supabase.from(table).update(patch).eq("id", id).select("id").maybeSingle()
   if (error) throw error
+  if (!data) throw new Error("No record was updated. Check that the record still exists and your account has permission to edit it.")
 }
 
 async function remove(table, id) {
@@ -148,8 +149,9 @@ async function remove(table, id) {
     emit(table, { type: "DELETE", row: { id } })
     return
   }
-  const { error } = await supabase.from(table).delete().eq("id", id)
+  const { data, error } = await supabase.from(table).delete().eq("id", id).select("id").maybeSingle()
   if (error) throw error
+  if (!data) throw new Error("No record was deleted. Check that the record still exists and your account has permission to delete it.")
 }
 
 /** Subscribe to changes. cb receives {type, row}. Returns an unsubscribe function. */
@@ -235,27 +237,25 @@ export async function createOrder(order) {
     payment_status: needsReceipt(order.payment_method) ? "verifying" : "unpaid",
     ...order,
   }
-  let saved
+  // Persist the complete order first. Never downgrade order_type or delivery_address
+  // into a note: if the schema is outdated, show the database error instead of
+  // silently losing structured transaction data.
+  const saved = await insert("orders", row)
+
+  // A notification is secondary to the order itself. If notification insertion
+  // fails, do not tell the customer that their already-saved order failed.
   try {
-    saved = await insert("orders", row)
-  } catch (e) {
-    // The database hasn't had supabase/migration_v3.sql run yet (no order_type / delivery_address
-    // columns). Don't lose the order: store those details inside the note instead.
-    if (!/order_type|delivery_address|schema cache/i.test(e?.message || "")) throw e
-    const { order_type, delivery_address, ...rest } = row
-    const extra = [ORDER_TYPE_LABEL[order_type], delivery_address && `Deliver to: ${delivery_address}`]
-      .filter(Boolean)
-      .join(" · ")
-    saved = await insert("orders", { ...rest, note: [extra, rest.note].filter(Boolean).join(" · ") })
+    await pushNotification({
+      type: "order",
+      title: "New order " + saved.code,
+      body: `${saved.customer_name} · ₱${Number(saved.total).toFixed(2)} · ${
+        METHOD_LABEL[saved.payment_method] || saved.payment_method
+      } · ${ORDER_TYPE_LABEL[saved.order_type] || ""}${needsReceipt(saved.payment_method) ? " (check Messenger for proof)" : ""}`,
+      order_code: saved.code,
+    })
+  } catch (notificationError) {
+    console.error("Order saved, but its notification could not be created:", notificationError)
   }
-  await pushNotification({
-    type: "order",
-    title: "New order " + saved.code,
-    body: `${saved.customer_name} · ₱${Number(saved.total).toFixed(2)} · ${
-      METHOD_LABEL[saved.payment_method] || saved.payment_method
-    } · ${ORDER_TYPE_LABEL[saved.order_type] || ""}${needsReceipt(saved.payment_method) ? " (check Messenger for proof)" : ""}`,
-    order_code: saved.code,
-  })
   return saved
 }
 
@@ -264,13 +264,18 @@ export const deleteOrder = (id) => remove("orders", id)
 
 export async function updateOrder(order, patch, notifyText) {
   await update("orders", order.id, patch)
-  if (notifyText)
-    await pushNotification({
-      type: "order",
-      title: `${order.code}: ${notifyText}`,
-      body: order.customer_name,
-      order_code: order.code,
-    })
+  if (notifyText) {
+    try {
+      await pushNotification({
+        type: "order",
+        title: `${order.code}: ${notifyText}`,
+        body: order.customer_name,
+        order_code: order.code,
+      })
+    } catch (notificationError) {
+      console.error("Order updated, but its notification could not be created:", notificationError)
+    }
+  }
 }
 
 /** Customers can only look up their own orders by code. */
@@ -293,12 +298,16 @@ export async function attachReceipt(code, url) {
     const { error } = await supabase.rpc("attach_receipt", { p_code: code, p_url: url })
     if (error) throw error
   }
-  await pushNotification({
-    type: "payment",
-    title: "New payment receipt " + code,
-    body: "Customer re-uploaded a receipt",
-    order_code: code,
-  })
+  try {
+    await pushNotification({
+      type: "payment",
+      title: "New payment receipt " + code,
+      body: "Customer re-uploaded a receipt",
+      order_code: code,
+    })
+  } catch (notificationError) {
+    console.error("Receipt was attached, but its notification could not be created:", notificationError)
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -340,22 +349,31 @@ export async function createBooking(booking) {
     if (e?.code === "23505") throw new Error(DAY_TAKEN)
     throw e
   }
-  await pushNotification({
-    type: "booking",
-    title: "New event booking " + saved.code,
-    body: `${saved.customer_name} · ${saved.event_date} · ${saved.package || "package TBD"}`,
-  })
+  try {
+    await pushNotification({
+      type: "booking",
+      title: "New event booking " + saved.code,
+      body: `${saved.customer_name} · ${saved.event_date} · ${saved.package || "package TBD"}`,
+    })
+  } catch (notificationError) {
+    console.error("Booking saved, but its notification could not be created:", notificationError)
+  }
   return saved
 }
 
 export async function setBookingStatus(booking, status, notifyText) {
   await update("bookings", booking.id, { status })
-  if (notifyText)
-    await pushNotification({
-      type: "booking",
-      title: `${booking.code}: ${notifyText}`,
-      body: `${booking.customer_name} · ${booking.event_date}`,
-    })
+  if (notifyText) {
+    try {
+      await pushNotification({
+        type: "booking",
+        title: `${booking.code}: ${notifyText}`,
+        body: `${booking.customer_name} · ${booking.event_date}`,
+      })
+    } catch (notificationError) {
+      console.error("Booking updated, but its notification could not be created:", notificationError)
+    }
+  }
 }
 
 /** Owner: close a free day (holiday, day off, already booked elsewhere…). */
@@ -390,12 +408,17 @@ export async function updateBooking(booking, patch, notifyText) {
     if (e?.code === "23505") throw new Error("That day already has a booking.")
     throw e
   }
-  if (notifyText)
-    await pushNotification({
-      type: "booking",
-      title: `${booking.code}: ${notifyText}`,
-      body: `${patch.customer_name || booking.customer_name} · ${patch.event_date || booking.event_date}`,
-    })
+  if (notifyText) {
+    try {
+      await pushNotification({
+        type: "booking",
+        title: `${booking.code}: ${notifyText}`,
+        body: `${patch.customer_name || booking.customer_name} · ${patch.event_date || booking.event_date}`,
+      })
+    } catch (notificationError) {
+      console.error("Booking updated, but its notification could not be created:", notificationError)
+    }
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -407,11 +430,15 @@ export const deleteMessage = (id) => remove("messages", id)
 
 export async function sendMessage({ name, email, message }) {
   const saved = await insert("messages", { name, email, message, read: false })
-  await pushNotification({
-    type: "message",
-    title: "New message from " + name,
-    body: message.slice(0, 90),
-  })
+  try {
+    await pushNotification({
+      type: "message",
+      title: "New message from " + name,
+      body: message.slice(0, 90),
+    })
+  } catch (notificationError) {
+    console.error("Message saved, but its notification could not be created:", notificationError)
+  }
   return saved
 }
 

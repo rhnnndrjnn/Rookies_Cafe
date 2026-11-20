@@ -31,3 +31,9 @@ Checkout copies the order text and opens Messenger. Add the Facebook page's user
 - `pages/` – customer pages, `pages/Owner.jsx`; `components/staff/` – portal panels.
 - Editable pages: the owner changes the **Home**, **About**, **Events** and **Contacts** pages under `/owner` (saved in the `settings` table as `home`, `about`, `events`, `contacts` — no migration needed). Defaults live in `lib/constants.js` (`DEFAULT_HOME`, `DEFAULT_CONTACTS`, …); blank/missing fields fall back to them.
 - Prices: 22oz defaults to +₱20 (`SIZE_UPCHARGE`), add-ons ₱9 (`ADDON_PRICE`), add-on names per category in `lib/constants.js`.
+
+## Shared database transactions (v7)
+
+Customer carts are intentionally local to each customer's browser until checkout. A placed order is stored in the shared Supabase `public.orders` table; owner transaction views read, update, and delete those same rows. Bookings, messages, notifications, products, and settings are also stored in Supabase. Owner deletions/updates therefore apply to all browsers, not just the current browser.
+
+For an existing Supabase project, run `supabase/migration_v7.sql` once in Supabase Dashboard → SQL Editor, then redeploy the frontend on Vercel. This migration preserves existing business records. Do not put a Supabase service-role/secret key in Vercel frontend variables; use only the project URL and publishable/anon key.
