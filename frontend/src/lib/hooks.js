@@ -32,7 +32,18 @@ export function useMenuData() {
 
   useEffect(() => {
     load()
-    return subscribe(["products", "settings"], load)
+    const unsubscribe = subscribe(["products", "settings"], load)
+    // Keep every customer's browser in sync even if Realtime is unavailable.
+    const timer = setInterval(() => {
+      if (document.visibilityState === "visible") load()
+    }, 10000)
+    const onVisible = () => document.visibilityState === "visible" && load()
+    document.addEventListener("visibilitychange", onVisible)
+    return () => {
+      unsubscribe()
+      clearInterval(timer)
+      document.removeEventListener("visibilitychange", onVisible)
+    }
   }, [load])
 
   return { products, settings, loading, error, reload: load }

@@ -81,7 +81,18 @@ export function useStaffData() {
         }
       }),
     ]
-    return () => unsubs.forEach((u) => u())
+    // Poll shared records as a fallback so owner/customer views converge even
+    // when a browser connection misses a Realtime event.
+    const timer = setInterval(() => {
+      if (document.visibilityState === "visible") loadAll()
+    }, 10000)
+    const onVisible = () => document.visibilityState === "visible" && loadAll()
+    document.addEventListener("visibilitychange", onVisible)
+    return () => {
+      unsubs.forEach((u) => u())
+      clearInterval(timer)
+      document.removeEventListener("visibilitychange", onVisible)
+    }
   }, [loadAll, notify])
 
   return { orders, messages, notifications, products, bookings, settings, loading, error, reload: loadAll }

@@ -1,7 +1,7 @@
 // Data layer. Talks to Supabase when VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY are set,
 // otherwise falls back to a localStorage "demo mode" with the same API so the whole
 // site (including both staff portals) can be tried without a backend.
-import { supabase, isDemo } from "./supabase"
+import { supabase, isDemo, hasDatabase } from "./supabase"
 import {
   BOOKING_HOLDS_DAY,
   BUCKET,
@@ -12,6 +12,12 @@ import {
   makeOrderCode,
   needsReceipt,
 } from "./constants"
+
+function requireDatabase() {
+  if (!hasDatabase || !supabase) {
+    throw new Error("The shared database is not connected. Please contact the site owner; changes cannot be saved locally.")
+  }
+}
 
 const uid = () =>
   crypto.randomUUID
@@ -89,6 +95,7 @@ if (isDemo) {
 /* Generic helpers                                                     */
 /* ------------------------------------------------------------------ */
 async function list(table, { order = "created_at", asc = false } = {}) {
+  requireDatabase()
   if (isDemo) {
     const rows = [...(readLocal(table) || [])]
     return rows.sort((a, b) => {
@@ -103,6 +110,7 @@ async function list(table, { order = "created_at", asc = false } = {}) {
 }
 
 async function insert(table, row) {
+  requireDatabase()
   const full = { id: uid(), created_at: new Date().toISOString(), ...row }
   if (isDemo) {
     writeLocal(table, [full, ...(readLocal(table) || [])])
@@ -116,6 +124,7 @@ async function insert(table, row) {
 }
 
 async function update(table, id, patch) {
+  requireDatabase()
   if (isDemo) {
     let updated
     writeLocal(
@@ -130,6 +139,7 @@ async function update(table, id, patch) {
 }
 
 async function remove(table, id) {
+  requireDatabase()
   if (isDemo) {
     writeLocal(
       table,
@@ -144,6 +154,7 @@ async function remove(table, id) {
 
 /** Subscribe to changes. cb receives {type, row}. Returns an unsubscribe function. */
 export function subscribe(tables, cb) {
+  if (!hasDatabase || !supabase) return () => {}
   if (isDemo) {
     const l = { tables, cb }
     listeners.add(l)
@@ -172,6 +183,7 @@ export const setProductAvailable = (id, available) => update("products", id, { a
 /* Settings (store status, GCash + QRPh details)                       */
 /* ------------------------------------------------------------------ */
 export async function getSettings() {
+  requireDatabase()
   let rows
   if (isDemo) rows = readLocal("settings") || []
   else {
@@ -195,6 +207,7 @@ export async function getSettings() {
 }
 
 export async function setSetting(key, value) {
+  requireDatabase()
   if (isDemo) {
     const rows = readLocal("settings") || []
     const exists = rows.some((r) => r.key === key)
@@ -263,6 +276,7 @@ export async function updateOrder(order, patch, notifyText) {
 /** Customers can only look up their own orders by code. */
 export async function getOrdersByCodes(codes) {
   if (!codes.length) return []
+  requireDatabase()
   if (isDemo) return (readLocal("orders") || []).filter((o) => codes.includes(o.code))
   const { data, error } = await supabase.rpc("orders_by_codes", { codes })
   if (error) throw error
@@ -271,6 +285,7 @@ export async function getOrdersByCodes(codes) {
 
 /** Lets a customer attach a GCash receipt to an existing order they own. */
 export async function attachReceipt(code, url) {
+  requireDatabase()
   if (isDemo) {
     const o = (readLocal("orders") || []).find((x) => x.code === code)
     if (o) await update("orders", o.id, { receipt_url: url, payment_status: "verifying" })
@@ -297,6 +312,7 @@ export const getBookings = () => list("bookings", { order: "event_date", asc: tr
  * Returns [{ event_date: "YYYY-MM-DD", status }].
  */
 export async function getBookedDates() {
+  requireDatabase()
   if (isDemo)
     return (readLocal("bookings") || [])
       .filter((b) => BOOKING_HOLDS_DAY.includes(b.status))
@@ -442,6 +458,7 @@ const blobToDataUrl = (blob) =>
 
 /** folder: "receipts" | "products" | "gcash" | "qrph" — returns a URL (or data URL in demo mode). */
 export async function uploadImage(file, folder) {
+  requireDatabase()
   const blob = await compressImage(file)
   if (isDemo) return blobToDataUrl(blob)
   const path = `${folder}/${Date.now()}-${uid().slice(0, 8)}.jpg`
@@ -464,6 +481,7 @@ async function profileFor(user) {
 }
 
 export async function getSession() {
+  if (!hasDatabase) return null
   if (isDemo) {
     try {
       const s = JSON.parse(sessionStorage.getItem(SESSION_KEY) || "null")
@@ -484,6 +502,7 @@ export async function getSession() {
 }
 
 export async function login(username, password) {
+  requireDatabase()
   username = username.trim().toLowerCase()
   if (isDemo) {
     const acc = (readLocal("staff") || []).find(
@@ -501,11 +520,13 @@ export async function login(username, password) {
 }
 
 export async function logout() {
+  if (!hasDatabase) return
   if (isDemo) sessionStorage.removeItem(SESSION_KEY)
   else await supabase.auth.signOut()
 }
 
 export async function changeCredentials(session, { username, currentPassword, newPassword }) {
+  requireDatabase()
   username = username.trim().toLowerCase()
   if (!/^[a-z0-9._-]{3,}$/.test(username))
     throw new Error("Username must be at least 3 characters (letters, numbers, . _ -).")

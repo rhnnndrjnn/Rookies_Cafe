@@ -8,13 +8,14 @@ const url = import.meta.env.VITE_SUPABASE_URL
 const key =
   import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY
 
-// When the env vars are missing the app runs in local demo mode (see db.js).
+// Shared data must never silently fall back to browser-only storage.
 export const supabase = url && key ? createClient(url, key) : null
-export const isDemo = !supabase
+export const isDemo = false
+export const hasDatabase = !!supabase
 
-if (isDemo) {
-  console.warn(
-    "[Rookies Cafe] Supabase is NOT connected — running in local demo mode. " +
-      "Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY in .env, then restart `npm run dev`.",
+if (!hasDatabase) {
+  console.error(
+    "[Rookies Cafe] Database is not configured. Set VITE_SUPABASE_URL and " +
+      "VITE_SUPABASE_PUBLISHABLE_KEY in the deployment environment.",
   )
 }
