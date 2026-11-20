@@ -2,6 +2,8 @@ import { useMemo, useState } from "react"
 import { Icon } from "../ui.jsx"
 import { METHOD_LABEL, ORDER_TYPE_LABEL, PAYMENT_LABEL, STATUS_LABEL, fmtDateTime, peso } from "../../lib/constants.js"
 import { PanelHeader } from "./Shell.jsx"
+import { deleteOrder } from "../../lib/db.js"
+import { useNotify } from "../../lib/notify.jsx"
 
 const RANGES = [
   { id: "today", label: "Today", days: 0 },
@@ -11,8 +13,28 @@ const RANGES = [
 ]
 
 export default function TransactionsPanel({ orders }) {
+  const notify = useNotify()
   const [range, setRange] = useState("today")
   const [q, setQ] = useState("")
+
+  const del = async (o) => {
+    if (!window.confirm(`Delete transaction ${o.code} (${o.customer_name}, ${peso(o.total)})? This can't be undone.`)) return
+    try {
+      await deleteOrder(o.id)
+      notify("Transaction deleted", o.code)
+    } catch (e) {
+      notify("Could not delete", e.message, { tone: "error" })
+    }
+  }
+  const delAll = async () => {
+    if (!rows.length || !window.confirm(`Delete all ${rows.length} transactions shown here? This can't be undone.`)) return
+    try {
+      await Promise.all(rows.map((o) => deleteOrder(o.id)))
+      notify("Transactions deleted", `${rows.length} removed`)
+    } catch (e) {
+      notify("Could not delete", e.message, { tone: "error" })
+    }
+  }
 
   const rows = useMemo(() => {
     const r = RANGES.find((x) => x.id === range)
@@ -68,6 +90,9 @@ export default function TransactionsPanel({ orders }) {
         <button className="btn-sm" onClick={exportCsv} disabled={!rows.length}>
           <Icon name="upload" size={14} /> Export CSV
         </button>
+        <button className="btn-sm danger" onClick={delAll} disabled={!rows.length}>
+          <Icon name="trash" size={14} /> Delete shown
+        </button>
       </PanelHeader>
       <div className="mb-5 grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-3 xl:grid-cols-5">
         {stats.map((s) => (
@@ -104,6 +129,9 @@ export default function TransactionsPanel({ orders }) {
               <span className="badge">{METHOD_LABEL[o.payment_method] || o.payment_method}</span>
               <span className={`badge ${o.payment_status}`}>{PAYMENT_LABEL[o.payment_status]}</span>
               <span className={`badge ${o.status}`}>{STATUS_LABEL[o.status]}</span>
+              <button className="btn-sm danger ml-auto" onClick={() => del(o)} aria-label={`Delete ${o.code}`}>
+                <Icon name="trash" size={14} /> Delete
+              </button>
             </div>
           </li>
         ))}
@@ -111,11 +139,11 @@ export default function TransactionsPanel({ orders }) {
       <div className="hidden overflow-x-auto rounded-2xl border border-earth-300 bg-earth-50 shadow-sm md:block">
         <table className="data-table min-w-[720px]">
           <thead>
-            <tr><th>Date</th><th>Code</th><th>Customer</th><th>Type</th><th>Method</th><th>Payment</th><th>Status</th><th className="text-right">Total</th></tr>
+            <tr><th>Date</th><th>Code</th><th>Customer</th><th>Type</th><th>Method</th><th>Payment</th><th>Status</th><th className="text-right">Total</th><th><span className="sr-only">Delete</span></th></tr>
           </thead>
           <tbody>
             {rows.length === 0 && (
-              <tr><td colSpan={8} className="py-12 text-center text-earth-600">No transactions in this range.</td></tr>
+              <tr><td colSpan={9} className="py-12 text-center text-earth-600">No transactions in this range.</td></tr>
             )}
             {rows.map((o) => (
               <tr key={o.id}>
@@ -127,6 +155,11 @@ export default function TransactionsPanel({ orders }) {
                 <td><span className={`badge ${o.payment_status}`}>{PAYMENT_LABEL[o.payment_status]}</span></td>
                 <td><span className={`badge ${o.status}`}>{STATUS_LABEL[o.status]}</span></td>
                 <td className="text-right font-semibold">{peso(o.total)}</td>
+                <td className="text-right">
+                  <button className="btn-sm danger" onClick={() => del(o)} aria-label={`Delete ${o.code}`}>
+                    <Icon name="trash" size={14} />
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>

@@ -8,6 +8,8 @@ export function useMenuData() {
     store_open: { open: true },
     gcash: { name: "", number: "", qr: "" },
     qrph: { name: "", qr: "" },
+    categories: null,
+    about: null,
   })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -34,7 +36,7 @@ export function useMenuData() {
 }
 
 /* ---- customer order tracking: polls the visitor's own orders and toasts on status changes ---- */
-import { getMyOrderCodes, rememberOrderCode } from "./cart.js"
+import { forgetOrderCode, getMyOrderCodes, rememberOrderCode } from "./cart.js"
 import { useNotify } from "./notify.jsx"
 import { STATUS_LABEL } from "./constants.js"
 
@@ -87,7 +89,12 @@ export function useMyOrders(active) {
     rememberOrderCode(code.trim().toUpperCase())
     return refresh()
   }
-  return { orders, loading, refresh, track }
+  const remove = (code) => {
+    forgetOrderCode(code)
+    if (seen.current) delete seen.current[code]
+    setOrders((rows) => rows.filter((o) => o.code !== code))
+  }
+  return { orders, loading, refresh, track, remove }
 }
 
 /**

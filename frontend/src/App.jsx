@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react"
 import { NotifyProvider, useNotify } from "./lib/notify.jsx"
 import { useCart } from "./lib/cart.js"
 import { useMenuData, useMyOrders } from "./lib/hooks.js"
+import { resolveCategories } from "./lib/constants.js"
 import Splash from "./components/Splash.jsx"
 import ProductModal from "./components/ProductModal.jsx"
 import { CorporateFooter, Navbar, StatusBanner, navItems } from "./components/Shell.jsx"
@@ -33,6 +34,7 @@ function CustomerSite({ route, navigate }) {
   const [modal, setModal] = useState(null) // { product, line? }
 
   const storeOpen = menu.settings.store_open?.open !== false
+  const categories = resolveCategories(menu.settings, menu.products)
 
   const openProduct = useCallback((product) => setModal({ product }), [])
   const editLine = (line) => {
@@ -54,10 +56,11 @@ function CustomerSite({ route, navigate }) {
 
   const pages = {
     "/": <HomePage navigate={navigate} products={menu.products} openProduct={openProduct} />,
-    "/about": <AboutPage navigate={navigate} />,
+    "/about": <AboutPage navigate={navigate} content={menu.settings.about} />,
     "/menu": (
       <MenuPage
         products={menu.products}
+        categories={categories}
         loading={menu.loading}
         error={menu.error}
         query={query}
@@ -106,6 +109,7 @@ function CustomerSite({ route, navigate }) {
         <ProductModal
           key={modal.line?.id || modal.product.id}
           product={modal.product}
+          categories={categories}
           line={modal.line}
             onClose={() => setModal(null)}
           onSubmit={submitModal}

@@ -96,5 +96,6 @@ export function buildBookingMessage(b) {
     `Event place: ${b.venue}`,
   )
   if (b.notes) lines.push(`Notes: ${b.notes}`)
+  lines.push("Booking policies: Read and accepted")
   return lines.join("\n")
 }

@@ -22,6 +22,8 @@ export function useStaffData() {
     store_open: { open: true },
     gcash: { name: "", number: "", qr: "" },
     qrph: { name: "", qr: "" },
+    categories: null,
+    about: null,
   })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")

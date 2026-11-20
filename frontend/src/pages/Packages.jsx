@@ -1,6 +1,7 @@
 import { Icon, PageLink } from "../components/ui.jsx"
 import {
   PACKAGES,
+  PACKAGE_EXTRA_CLASSIC,
   PACKAGE_EXTRA_FLAVOR,
   PACKAGE_INCLUSIONS,
   PACKAGE_OCCASIONS,
@@ -113,6 +114,10 @@ export default function PackagesPage({ navigate }) {
             <p className="mt-3 text-sm leading-6 text-earth-700">
               Additional premium flavors on your menu may cost{" "}
               <strong>{pesoWhole(PACKAGE_EXTRA_FLAVOR)} each selection.</strong>
+            </p>
+            <p className="mt-3 text-sm leading-6 text-earth-700">
+              Additional Classic flavors on your menu may cost{" "}
+              <strong>{pesoWhole(PACKAGE_EXTRA_CLASSIC)} each selection.</strong>
             </p>
           </div>
           <div className="rounded-2xl border border-earth-300 bg-earth-50 p-6 shadow-md">

@@ -9,6 +9,7 @@ import MessagesPanel from "../components/staff/Messages.jsx"
 import ProductsManager from "../components/staff/Products.jsx"
 import PaymentSettings, { StoreToggle } from "../components/staff/Settings.jsx"
 import EventsPanel from "../components/staff/Events.jsx"
+import AboutEditor from "../components/staff/AboutEditor.jsx"
 import { PanelHeader } from "../components/staff/Shell.jsx"
 import { STATUS_LABEL, fmtDateTime, peso } from "../lib/constants.js"
 
@@ -64,6 +65,7 @@ function OwnerApp({ session, setSession, navigate, onLogout }) {
     { id: "events", label: "Event bookings", icon: "calendar", badge: data.bookings.filter((b) => b.status === "pending").length },
     { id: "transactions", label: "Transactions", icon: "receipt" },
     { id: "messages", label: "Messages", icon: "mail", badge: data.messages.filter((m) => !m.read).length },
+    { id: "about", label: "About page", icon: "eye" },
     { id: "payments", label: "Payment details", icon: "bag" },
     { id: "account", label: "My account", icon: "lock" },
   ]
@@ -79,7 +81,7 @@ function OwnerApp({ session, setSession, navigate, onLogout }) {
       right={
         <>
           <StoreToggle settings={data.settings} session={session} />
-          <NotificationBell notifications={data.notifications} navigate={(n) => setTab(n.type === "message" ? "messages" : n.type === "booking" ? "events" : "orders")} />
+          <NotificationBell canDelete notifications={data.notifications} navigate={(n) => setTab(n.type === "message" ? "messages" : n.type === "booking" ? "events" : "orders")} />
         </>
       }
     >
@@ -91,10 +93,11 @@ function OwnerApp({ session, setSession, navigate, onLogout }) {
         <>
           {tab === "overview" && <Overview orders={data.orders} bookings={data.bookings} goEvents={() => setTab("events")} goOrders={() => setTab("orders")} />}
           {tab === "orders" && <OrdersPanel orders={data.orders} storeOpen={data.settings.store_open?.open !== false} />}
-          {tab === "products" && <ProductsManager products={data.products} />}
+          {tab === "products" && <ProductsManager products={data.products} settings={data.settings} />}
           {tab === "events" && <EventsPanel bookings={data.bookings} />}
           {tab === "transactions" && <TransactionsPanel orders={data.orders} />}
           {tab === "messages" && <MessagesPanel messages={data.messages} canDelete />}
+          {tab === "about" && <AboutEditor settings={data.settings} />}
           {tab === "payments" && <PaymentSettings settings={data.settings} />}
           {tab === "account" && <AccountPanel session={session} onSessionChange={setSession} />}
         </>

@@ -1,5 +1,6 @@
 import { useRef, useState } from "react"
 import AddressFields from "../components/AddressFields.jsx"
+import BookingPolicyModal from "../components/BookingPolicyModal.jsx"
 import CopyTemplate from "../components/CopyTemplate.jsx"
 import EventCalendar from "../components/EventCalendar.jsx"
 import { Chip, FieldMessage, Icon, Input, PageLink, Spinner } from "../components/ui.jsx"
@@ -60,8 +61,28 @@ const RULES = {
   },
 }
 
+const POLICY_KEY = "rookie_booking_policy_accepted_v1"
+const policyAlreadyAccepted = () => {
+  try {
+    return sessionStorage.getItem(POLICY_KEY) === "1"
+  } catch {
+    return false
+  }
+}
+
 export default function BookPage({ navigate }) {
   const notify = useNotify()
+  // Customers must read and accept the booking policies before they can book.
+  const [policyOk, setPolicyOk] = useState(policyAlreadyAccepted)
+  const [policyView, setPolicyView] = useState(false)
+  const acceptPolicy = () => {
+    try {
+      sessionStorage.setItem(POLICY_KEY, "1")
+    } catch {
+      /* private mode — the acceptance just lasts for this page view */
+    }
+    setPolicyOk(true)
+  }
   const { dates, loading, error: datesError, refresh } = useBookedDates()
   const minDate = earliestBookable()
 
@@ -210,6 +231,8 @@ export default function BookPage({ navigate }) {
 
   return (
     <main className="bg-earth-200">
+      {!policyOk && <BookingPolicyModal mode="accept" onAccept={acceptPolicy} onDecline={() => navigate("/packages")} />}
+      {policyView && <BookingPolicyModal mode="view" onClose={() => setPolicyView(false)} />}
       <section className="border-b border-earth-300 bg-earth-100 px-5 py-14 sm:px-8 lg:px-12 lg:py-16">
         <div className="mx-auto max-w-[1200px]">
           <p className="eyebrow">Mobile coffee cart</p>
@@ -217,6 +240,9 @@ export default function BookPage({ navigate }) {
           <p className="mt-4 max-w-xl text-base leading-7 text-earth-600">
             Pick an open day, tell us about your celebration, and we’ll take it from there.
           </p>
+          <button type="button" onClick={() => setPolicyView(true)} className="mt-4 text-xs font-semibold underline underline-offset-4">
+            Read the booking policies &amp; event guidelines
+          </button>
         </div>
       </section>
 

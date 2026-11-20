@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react"
 import { Icon, Spinner } from "../components/ui.jsx"
-import { CATEGORIES, peso } from "../lib/constants.js"
+import { peso } from "../lib/constants.js"
 
-export default function MenuPage({ products, loading, error, query, setQuery, openProduct }) {
+export default function MenuPage({ products, categories, loading, error, query, setQuery, openProduct }) {
+  const CATEGORIES = useMemo(() => categories.map((c) => c.name), [categories])
   const [activeCategory, setActiveCategory] = useState(CATEGORIES[0])
   const searching = query.trim().length > 0
 
@@ -10,7 +11,7 @@ export default function MenuPage({ products, loading, error, query, setQuery, op
   useEffect(() => {
     if (searching) setActiveCategory("All")
     else setActiveCategory((c) => (c === "All" ? CATEGORIES[0] : c))
-  }, [searching])
+  }, [searching]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase()

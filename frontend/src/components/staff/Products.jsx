@@ -1,12 +1,12 @@
 import { useState } from "react"
 import { FieldMessage, Icon, Input, Modal } from "../ui.jsx"
-import { CATEGORIES, FRIES_SHARING_DEFAULT, SIZE_UPCHARGE, isDrinkCategory, isFries, peso } from "../../lib/constants.js"
-import { deleteProduct, saveProduct, uploadImage } from "../../lib/db.js"
+import { DEFAULT_CATEGORY_LIST, FRIES_SHARING_DEFAULT, SIZE_UPCHARGE, isDrinkCategory, isFries, peso, resolveCategories } from "../../lib/constants.js"
+import { deleteProduct, saveProduct, setSetting, uploadImage } from "../../lib/db.js"
 import { useNotify } from "../../lib/notify.jsx"
 import { rules, useLiveForm } from "../../lib/validate.js"
 import { PanelHeader, Switch } from "./Shell.jsx"
 
-const blank = { name: "", detail: "", price: "", price_22: "", category: CATEGORIES[0], image: "", available: true, has_hot: false }
+const blank = { name: "", detail: "", price: "", price_22: "", category: DEFAULT_CATEGORY_LIST[0].name, image: "", available: true, has_hot: false }
 
 const RULES = {
   name: rules.required("Product name"),
@@ -14,7 +14,7 @@ const RULES = {
   price_22: rules.priceOptional,
 }
 
-function ProductForm({ product, onClose }) {
+function ProductForm({ product, categories, onClose }) {
   const notify = useNotify()
   const [f, setF] = useState(() => ({
     ...blank,
@@ -26,7 +26,7 @@ function ProductForm({ product, onClose }) {
   const [error, setError] = useState("")
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }))
   const form = useLiveForm(f, RULES)
-  const isDrink = isDrinkCategory(f.category)
+  const isDrink = isDrinkCategory(f.category, categories)
   const fries = isFries(f) // Flavored Fries: price = Solo, price_22 = Sharing
 
   const upload = async (file) => {
@@ -102,7 +102,7 @@ function ProductForm({ product, onClose }) {
         <label className="block">
           <span className="opt-label">Category</span>
           <select value={f.category} onChange={(e) => set("category", e.target.value)} className="input-box mt-2">
-            {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
+            {categories.map((c) => <option key={c.name}>{c.name}</option>)}
           </select>
         </label>
         <label className="block">
@@ -176,10 +176,103 @@ function ProductForm({ product, onClose }) {
   )
 }
 
-export default function ProductsManager({ products }) {
+
+/** Owner: add / remove menu categories. */
+function CategoryManager({ categories, products, onClose }) {
+  const notify = useNotify()
+  const [name, setName] = useState("")
+  const [kind, setKind] = useState("drink")
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState("")
+
+  const save = async (list) => {
+    setBusy(true)
+    try {
+      await setSetting("categories", { list })
+      return true
+    } catch (e) {
+      setError(e.message)
+      return false
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const add = async (e) => {
+    e.preventDefault()
+    setError("")
+    const n = name.trim().replace(/\s+/g, " ")
+    if (n.length < 2) return setError("Category name must be at least 2 characters.")
+    if (categories.some((c) => c.name.toLowerCase() === n.toLowerCase())) return setError("That category already exists.")
+    if (await save([...categories, { name: n, kind }])) {
+      notify("Category added", n, { tone: "success" })
+      setName("")
+    }
+  }
+
+  const remove = async (c) => {
+    const used = products.filter((p) => p.category === c.name).length
+    if (used) return setError(`“${c.name}” still has ${used} product${used === 1 ? "" : "s"}. Move or delete them first.`)
+    if (categories.length <= 1) return setError("You need at least one category.")
+    if (!window.confirm(`Delete the “${c.name}” category?`)) return
+    setError("")
+    if (await save(categories.filter((x) => x.name !== c.name))) notify("Category deleted", c.name)
+  }
+
+  const move = async (i, d) => {
+    const list = [...categories]
+    const j = i + d
+    if (j < 0 || j >= list.length) return
+    ;[list[i], list[j]] = [list[j], list[i]]
+    await save(list)
+  }
+
+  return (
+    <div className="space-y-5 p-5 sm:p-7">
+      <div className="flex items-center justify-between">
+        <h3 className="display-title text-2xl">Menu categories</h3>
+        <button type="button" onClick={onClose} aria-label="Close" className="grid size-9 place-items-center rounded-full hover:bg-earth-100">
+          <Icon name="close" size={16} />
+        </button>
+      </div>
+      <ul className="overflow-hidden rounded-2xl border border-earth-300">
+        {categories.map((c, i) => (
+          <li key={c.name} className="flex items-center gap-2 border-b border-earth-200 px-3 py-2.5 text-sm last:border-b-0">
+            <span className="min-w-0 flex-1">
+              <strong>{c.name}</strong>
+              <span className="block text-[11px] text-earth-600">
+                {c.kind === "drink" ? "Drink (size, sugar, add-ons)" : "Snack"} · {products.filter((p) => p.category === c.name).length} items
+              </span>
+            </span>
+            <button className="btn-sm" disabled={busy || i === 0} onClick={() => move(i, -1)} aria-label={`Move ${c.name} up`}>↑</button>
+            <button className="btn-sm" disabled={busy || i === categories.length - 1} onClick={() => move(i, 1)} aria-label={`Move ${c.name} down`}>↓</button>
+            <button className="btn-sm danger" disabled={busy} onClick={() => remove(c)} aria-label={`Delete ${c.name}`}>
+              <Icon name="trash" size={14} />
+            </button>
+          </li>
+        ))}
+      </ul>
+      <form onSubmit={add} className="space-y-3 rounded-2xl bg-earth-100 p-4">
+        <p className="opt-label">Add a new category</p>
+        <input value={name} onChange={(e) => setName(e.target.value)} maxLength={30} placeholder="e.g. Pastries, Frappe, Iced Tea" className="input-box" aria-label="New category name" />
+        <div className="flex flex-wrap items-center gap-2">
+          <button type="button" className={`chip ${kind === "drink" ? "chip-active" : ""}`} onClick={() => setKind("drink")}>Drink</button>
+          <button type="button" className={`chip ${kind === "snack" ? "chip-active" : ""}`} onClick={() => setKind("snack")}>Snack / food</button>
+          <button disabled={busy} className="btn-sm solid ml-auto">{busy ? "Saving…" : "Add category"}</button>
+        </div>
+        <p className="text-[11px] leading-4 text-earth-600">Drinks get size, sugar level and add-ons. Snack / food items are a single price.</p>
+      </form>
+      {error && <p role="alert" className="rounded-xl bg-[#F3DEDB] p-3 text-xs text-[#8F3B31]">{error}</p>}
+    </div>
+  )
+}
+
+export default function ProductsManager({ products, settings }) {
   const notify = useNotify()
   const [editing, setEditing] = useState(null) // product | {} (new) | null
   const [filter, setFilter] = useState("All")
+  const [managing, setManaging] = useState(false)
+  const categories = resolveCategories(settings, products)
   const list = products.filter((p) => filter === "All" || p.category === filter)
 
   const remove = async (p) => {
@@ -195,12 +288,15 @@ export default function ProductsManager({ products }) {
   return (
     <div>
       <PanelHeader eyebrow="Menu" title="Products">
+        <button className="btn-sm" onClick={() => setManaging(true)}>
+          <Icon name="edit" size={14} /> Categories
+        </button>
         <button className="btn-sm solid" onClick={() => setEditing({})}>
           <Icon name="plus" size={14} /> Add product
         </button>
       </PanelHeader>
       <div className="no-scrollbar mb-4 flex gap-2 overflow-x-auto">
-        {["All", ...CATEGORIES].map((c) => (
+        {["All", ...categories.map((c) => c.name)].map((c) => (
           <button key={c} onClick={() => setFilter(c)} className={`chip whitespace-nowrap ${filter === c ? "chip-active" : ""}`}>{c}</button>
         ))}
       </div>
@@ -226,7 +322,10 @@ export default function ProductsManager({ products }) {
         ))}
       </ul>
       <Modal open={!!editing} onClose={() => setEditing(null)} wide label="Product editor">
-        {editing && <ProductForm key={editing.id || "new"} product={editing.id ? editing : null} onClose={() => setEditing(null)} />}
+        {editing && <ProductForm key={editing.id || "new"} product={editing.id ? editing : null} categories={categories} onClose={() => setEditing(null)} />}
+      </Modal>
+      <Modal open={managing} onClose={() => setManaging(false)} label="Manage categories">
+        {managing && <CategoryManager categories={categories} products={products} onClose={() => setManaging(false)} />}
       </Modal>
     </div>
   )

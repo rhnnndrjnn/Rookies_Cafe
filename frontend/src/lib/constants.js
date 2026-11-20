@@ -50,17 +50,41 @@ export const BUCKET = "The Rookie Cafe"
 /* ------------------------------------------------------------------ */
 /* Menu structure                                                      */
 /* ------------------------------------------------------------------ */
-export const CATEGORIES = ["Classic", "Premium", "Matcha", "Non-Espresso", "Snacks"]
+// Default menu categories. The owner can add more in Owner → Products → Manage categories
+// (stored in the `categories` setting). kind: "drink" gets size / sugar / add-ons, "snack" does not.
+export const DEFAULT_CATEGORY_LIST = [
+  { name: "Classic", kind: "drink" },
+  { name: "Premium", kind: "drink" },
+  { name: "Matcha", kind: "drink" },
+  { name: "Non-Espresso", kind: "drink" },
+  { name: "Snacks", kind: "snack" },
+]
+export const CATEGORIES = DEFAULT_CATEGORY_LIST.map((c) => c.name)
+
+/** Category list from the owner's setting (falls back to the defaults). Any category still used
+ *  by a product but missing from the list is appended so no item ever disappears from the menu. */
+export const resolveCategories = (settings, products = []) => {
+  const saved = settings?.categories?.list
+  const list = Array.isArray(saved) && saved.length ? saved.map((c) => ({ ...c })) : DEFAULT_CATEGORY_LIST.map((c) => ({ ...c }))
+  products.forEach((p) => {
+    if (p.category && !list.some((c) => c.name === p.category))
+      list.push({ name: p.category, kind: p.category === "Snacks" ? "snack" : "drink" })
+  })
+  return list
+}
+export const categoryKind = (name, categories = DEFAULT_CATEGORY_LIST) =>
+  categories.find((c) => c.name === name)?.kind || (name === "Snacks" ? "snack" : "drink")
 // Sugar choices shown to customers. `value` is what is stored in the cart / order.
 export const SUGAR_LEVELS = [
   { value: 0, label: "Zero", text: "Zero sugar" },
   { value: 50, label: "Less", text: "Less sugar" },
   { value: 100, label: "Standard", text: "Standard sugar" },
-  { value: 150, label: "Extra sweet", text: "Extra sweet" },
 ]
 export const DEFAULT_SUGAR = 100
 // Older carts / orders stored a percentage (25, 75…): show those as-is.
-export const sugarLabel = (v) => SUGAR_LEVELS.find((s) => s.value === Number(v))?.text ?? `${v}% sugar`
+// "Extra sweet" (150) was removed as an option, but old orders may still carry it.
+export const sugarLabel = (v) =>
+  SUGAR_LEVELS.find((s) => s.value === Number(v))?.text ?? (Number(v) === 150 ? "Extra sweet" : `${v}% sugar`)
 
 // Add-on prices from the drink menu ("Add Ons" panel).
 export const ADDON_PRICES = {
@@ -69,12 +93,18 @@ export const ADDON_PRICES = {
   Milk: 25,
   "Whipped cream": 30,
   "Sea salt cream": 30,
+  // Nachos & Cheesy Fries add-ons
+  Beef: 30,
+  Cheese: 30,
+  Veggies: 30,
 }
+export const SNACK_ADDONS = ["Beef", "Cheese", "Veggies"] // ₱30 each
+// Only the nachos and the cheesy fries can take add-ons.
+export const hasSnackAddons = (p) => /nachos|cheesy fries/i.test(p?.name || "")
 export const ADDON_PRICE = 25 // legacy fallback for add-ons not listed above
 export const SIZE_UPCHARGE = 35 // Upsize 16oz → 22oz
 
-export const DRINK_CATEGORIES = CATEGORIES.filter((c) => c !== "Snacks")
-export const isDrinkCategory = (c) => DRINK_CATEGORIES.includes(c)
+export const isDrinkCategory = (c, categories) => categoryKind(c, categories) === "drink"
 export const SIZES = ["16oz", "22oz"]
 
 // Flavored Fries is ONE snack: the customer picks a serving (Solo / Sharing) and a flavor.
@@ -94,14 +124,10 @@ const HOT_CATEGORIES = ["Classic", "Premium"]
 // (Strawberry Matcha and Blueberry Matcha are iced only.)
 const HOT_DRINKS = ["Dirty Matcha", "Matcha Latte", "White Chocolate Matcha", "Matcha Biscoff", "Cocoa"]
 
-const DRINK_ADDONS = Object.keys(ADDON_PRICES)
-export const ADDONS = {
-  Classic: DRINK_ADDONS,
-  Premium: DRINK_ADDONS,
-  Matcha: DRINK_ADDONS,
-  "Non-Espresso": DRINK_ADDONS,
-  Snacks: [],
-}
+const DRINK_ADDONS = ["Espresso shot", "Syrup / Sauce", "Milk", "Whipped cream", "Sea salt cream"]
+/** Add-ons offered for a product: drinks get the drink add-ons, nachos / cheesy fries get Beef · Cheese · Veggies. */
+export const addonsFor = (product, categories) =>
+  isDrinkCategory(product?.category, categories) ? DRINK_ADDONS : hasSnackAddons(product) ? SNACK_ADDONS : []
 
 // The owner only works with two states. (Older orders may still carry preparing/ready/cancelled,
 // so those labels stay for display.)
@@ -224,6 +250,7 @@ export const PACKAGE_INCLUSIONS = [
 ]
 export const PACKAGE_SERVICE = "2–3 hours of coffee cart service"
 export const PACKAGE_EXTRA_FLAVOR = 300 // per additional premium flavor selection
+export const PACKAGE_EXTRA_CLASSIC = 150 // per additional classic flavor selection
 export const PACKAGE_PAYMENTS = ["Cash", "GCash", "QRPh"]
 export const PACKAGE_OCCASIONS = [
   "Weddings",
@@ -335,7 +362,7 @@ export const SEED_PRODUCTS = [
 /* Event bookings (mobile coffee cart)                                 */
 /* ------------------------------------------------------------------ */
 export const BOOKING_LEAD_DAYS = 3 // earliest bookable day = today + 3
-export const BOOKING_MAX_MONTHS = 12 // how far ahead the calendar goes
+export const BOOKING_MAX_MONTHS = 600 // effectively unlimited: the calendar keeps going month after month
 export const BOOKING_STATUS_LABEL = {
   pending: "Pending",
   confirmed: "Confirmed",
@@ -367,4 +394,122 @@ export const earliestBookable = () => {
 export const makeBookingCode = () => {
   const d = new Date()
   return `EVT-${pad(d.getMonth() + 1)}${pad(d.getDate())}-${Math.floor(1000 + Math.random() * 9000)}`
+}
+
+/* ------------------------------------------------------------------ */
+/* Booking policies & event guidelines (shown to customers before booking) */
+/* ------------------------------------------------------------------ */
+export const BOOKING_POLICIES = [
+  {
+    title: "Reservation & Payment",
+    items: [
+      "A 50% down payment is required to secure your event date.",
+      "The remaining balance must be settled before or on the day of the event.",
+      "Your reservation is confirmed once the down payment has been received.",
+      "Cash, GCash, QRPh, debit card, and credit card are accepted.",
+      "Cash promotional rates apply only to cash payments.",
+    ],
+  },
+  {
+    title: "Flavor Selection",
+    items: [
+      "Clients must finalize their drink selections before the event.",
+      "Each package has a specified number of Classic and Premium flavor selections.",
+      "Additional premium flavors from our menu may cost ₱300 per flavor selection.",
+      "Additional Classic flavors on your menu may cost ₱150 each selection.",
+      "Flavor selections are subject to availability and confirmation upon booking.",
+      "Hot drinks are available for selected flavors only.",
+    ],
+  },
+  {
+    title: "Guest Count & Servings",
+    items: [
+      "Each package includes one freshly prepared drink per guest.",
+      "The final guest count must not exceed the confirmed package quantity.",
+      "Additional drinks beyond the package inclusions will be subject to additional charges.",
+      "Unused drink allocations are non-refundable and cannot be exchanged for cash.",
+    ],
+  },
+  {
+    title: "Event Service",
+    items: [
+      "Standard service time is 2–3 hours, depending on the confirmed arrangement.",
+      "Additional service hours may be subject to an extra charge.",
+      "The client must provide a safe, accessible, and suitable space for the coffee cart setup.",
+      "Access to a reliable electrical outlet must be available at the venue.",
+      "Setup and preparation time may be arranged with the client before the event.",
+    ],
+  },
+  {
+    title: "Venue & Transportation",
+    items: [
+      "Transportation arrangements are subject to the event location.",
+      "Additional transportation or special access fees may apply for locations outside our standard service area.",
+      "Parking, loading access, and venue permits, if required, must be coordinated with the client.",
+    ],
+  },
+  {
+    title: "Cancellation & Rescheduling",
+    items: [
+      "Please inform us as early as possible if you need to cancel or reschedule.",
+      "Down payments are non-refundable once the booking has been confirmed.",
+      "Rescheduling is subject to date availability.",
+      "Any additional costs resulting from rescheduling or changes to the original arrangement will be discussed with the client.",
+    ],
+  },
+  {
+    title: "Event Changes",
+    items: [
+      "Changes to the guest count, flavor selections, venue, or service schedule must be communicated in advance.",
+      "Any changes may affect the final quotation.",
+      "Last-minute requests are subject to availability and approval.",
+    ],
+  },
+  {
+    title: "Weather & Unforeseen Circumstances",
+    items: [
+      "For outdoor events, the client must provide a covered and safe setup area.",
+      "In cases of severe weather or circumstances beyond our control, both parties will coordinate an appropriate alternative arrangement.",
+    ],
+  },
+]
+
+/* ------------------------------------------------------------------ */
+/* About page — default content (the owner can edit all of it)         */
+/* ------------------------------------------------------------------ */
+const SB = "https://lugwbevxkxmkhrqzpdox.supabase.co/storage/v1/object/public/menu-images/"
+export const DEFAULT_ABOUT = {
+  eyebrow: "Rookies Cafe",
+  headline1: "Good coffee.",
+  headline2: "Great moments.",
+  intro:
+    "Freshly brewed. Freshly made. Made for every coffee craving. From classic espresso favorites to matcha, non-coffee treats, and cheesy snacks, everything at Rookies Cafe is made fresh for the moments worth sharing.",
+  closing: "Rookies Cafe — Good Coffee. Great Moments.",
+  heroImage: SB + "mommm.jpg",
+  heroAlt: "Warm interior of Rookies Cafe",
+  whyEyebrow: "Why we brew",
+  whyTitle1: "Everyday care,",
+  whyTitle2: "cup by cup.",
+  values: [
+    { title: "Arabica blend", text: "Every espresso drink is pulled from our Arabica blend coffee beans, chosen for a smooth, balanced cup." },
+    { title: "Made with intention", text: "Every drink is freshly prepared and finished by hand—with premium syrups, sauces, and ingredients." },
+    { title: "Made for every craving", text: "Espresso, matcha, cocoa, fruity favorites, and snacks—there is something for every coffee craving." },
+    { title: "Coffee on the go", text: "Our mobile coffee cart brings a professional barista and the full menu to weddings, birthdays, and corporate events." },
+  ],
+  galleryEyebrow: "Inside Rookies Cafe",
+  galleryTitle: "The cafe, in moments.",
+  gallery: [
+    { src: SB + "mom4.jpg", alt: "A carefully poured cup of coffee" },
+    { src: SB + "mom.jpg", alt: "Fresh pastries at the café counter" },
+    { src: SB + "mom1.jpg", alt: "Coffee and pastry ready to share" },
+    { src: SB + "mom2.jpg", alt: "Warm details inside a rustic coffee shop" },
+  ],
+  menuButton: "Taste the menu",
+}
+/** Saved About content merged over the defaults, so a missing field never breaks the page. */
+export const resolveAbout = (saved) => {
+  const a = { ...DEFAULT_ABOUT, ...(saved || {}) }
+  a.values = DEFAULT_ABOUT.values.map((v, i) => ({ ...v, ...(saved?.values?.[i] || {}) }))
+  a.gallery = DEFAULT_ABOUT.gallery.map((g, i) => ({ ...g, ...(saved?.gallery?.[i] || {}) }))
+  return a
 }

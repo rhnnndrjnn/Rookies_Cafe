@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import logo from "../../assets/logo.png"
 import { FieldMessage, Icon, Input } from "../ui.jsx"
-import { changeCredentials, login, logout, markAllNotifications, markNotification } from "../../lib/db.js"
+import { changeCredentials, clearNotifications, deleteNotification, login, logout, markAllNotifications, markNotification } from "../../lib/db.js"
 import { isDemo } from "../../lib/supabase.js"
 import { timeAgo } from "../../lib/constants.js"
 import { useNotify } from "../../lib/notify.jsx"
@@ -106,7 +106,7 @@ export function WrongRole({ session, navigate, onLogout }) {
 }
 
 /* ---------------------------------------------------------- notification bell */
-export function NotificationBell({ notifications, navigate }) {
+export function NotificationBell({ notifications, navigate, canDelete = false }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   const unread = notifications.filter((n) => !n.read).length
@@ -141,27 +141,38 @@ export function NotificationBell({ notifications, navigate }) {
         <div className="fixed inset-x-3 top-16 z-50 sm:absolute sm:inset-x-auto sm:right-0 sm:top-12 sm:w-[380px] rounded-2xl border border-earth-300 bg-earth-50 shadow-[0_18px_50px_rgba(32,24,19,.2)]">
           <div className="flex items-center justify-between border-b border-earth-200 px-4 py-3">
             <p className="text-sm font-semibold">Notifications</p>
-            <button
-              onClick={() => markAllNotifications()}
-              disabled={!unread}
-              className="text-[11px] font-bold uppercase tracking-[.08em] text-earth-600 disabled:opacity-40"
-            >
-              Mark all read
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => markAllNotifications()}
+                disabled={!unread}
+                className="text-[11px] font-bold uppercase tracking-[.08em] text-earth-600 disabled:opacity-40"
+              >
+                Mark all read
+              </button>
+              {canDelete && (
+                <button
+                  onClick={() => notifications.length && window.confirm("Delete all notifications?") && clearNotifications()}
+                  disabled={!notifications.length}
+                  className="text-[11px] font-bold uppercase tracking-[.08em] text-[#8F3B31] disabled:opacity-40"
+                >
+                  Clear all
+                </button>
+              )}
+            </div>
           </div>
           <ul className="max-h-[60vh] overflow-y-auto">
             {notifications.length === 0 && (
               <li className="px-4 py-10 text-center text-sm text-earth-600">Nothing yet.</li>
             )}
             {notifications.slice(0, 40).map((n) => (
-              <li key={n.id}>
+              <li key={n.id} className="flex items-stretch border-b border-earth-200 last:border-b-0 hover:bg-earth-100">
                 <button
                   onClick={() => {
                     markNotification(n.id)
                     navigate?.(n)
                     setOpen(false)
                   }}
-                  className={`flex w-full gap-3 border-b border-earth-200 px-4 py-3 text-left last:border-b-0 hover:bg-earth-100 ${
+                  className={`flex min-w-0 flex-1 gap-3 px-4 py-3 text-left ${
                     n.read ? "" : "bg-earth-100/70"
                   }`}
                 >
@@ -174,6 +185,15 @@ export function NotificationBell({ notifications, navigate }) {
                     </span>
                   </span>
                 </button>
+                {canDelete && (
+                  <button
+                    onClick={() => deleteNotification(n.id)}
+                    aria-label={`Delete notification: ${n.title}`}
+                    className="grid w-11 shrink-0 place-items-center text-earth-500 hover:text-[#8F3B31]"
+                  >
+                    <Icon name="trash" size={15} />
+                  </button>
+                )}
               </li>
             ))}
           </ul>

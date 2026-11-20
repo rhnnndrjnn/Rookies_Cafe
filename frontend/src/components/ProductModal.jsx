@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react"
 import { Chip, Icon, Modal } from "./ui.jsx"
 import {
-  ADDONS,
   FRIES_FLAVORS,
   FRIES_SERVINGS,
   HOT_SIZE,
@@ -9,6 +8,7 @@ import {
   DEFAULT_SUGAR,
   SUGAR_LEVELS,
   addonPrice,
+  addonsFor,
   friesPrice,
   isDrinkCategory,
   isFries,
@@ -17,9 +17,9 @@ import {
 } from "../lib/constants.js"
 
 // Opens when the "+" button is pressed. Also used to edit a line already in the cart.
-export default function ProductModal({ product, line, onClose, onSubmit }) {
+export default function ProductModal({ product, line, categories, onClose, onSubmit }) {
   // Every category except Snacks is a drink and gets sugar level / size / add-ons.
-  const isDrink = isDrinkCategory(product?.category)
+  const isDrink = isDrinkCategory(product?.category, categories)
   const hotAllowed = isDrink && !!product?.has_hot
   // Flavored Fries: the customer must pick a serving (Solo / Sharing) and a flavor.
   const fries = isFries(product)
@@ -38,15 +38,19 @@ export default function ProductModal({ product, line, onClose, onSubmit }) {
   const effectiveSize = !isDrink ? undefined : isHot ? HOT_SIZE : size
 
   // Hot drinks are a single 8oz size and priced at the base (16oz) price.
+  // Drinks have their own add-ons; Nachos & Cheesy Fries can add Beef / Cheese / Veggies (₱30 each).
+  const addonOptions = addonsFor(product, categories)
+  const activeAddons = addons.filter((a) => addonOptions.includes(a))
+
   const price = useMemo(
     () =>
       fries
         ? friesPrice(product, serving || "Solo")
-        : unitPrice(product, effectiveSize === "22oz" ? "22oz" : "16oz", isDrink ? addons : []),
-    [product, effectiveSize, addons, isDrink, fries, serving],
+        : unitPrice(product, effectiveSize === "22oz" ? "22oz" : "16oz", activeAddons),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [product, effectiveSize, addons, fries, serving],
   )
 
-  const addonOptions = ADDONS[product?.category] || []
   const toggleAddon = (a) =>
     setAddons((cur) => (cur.includes(a) ? cur.filter((x) => x !== a) : [...cur, a]))
 
@@ -62,7 +66,7 @@ export default function ProductModal({ product, line, onClose, onSubmit }) {
       size: effectiveSize,
       serving: fries ? serving : undefined,
       flavor: fries ? flavor : undefined,
-      addons: isDrink ? addons : [],
+      addons: activeAddons,
       qty,
       unitPrice: price,
     })
@@ -172,7 +176,7 @@ export default function ProductModal({ product, line, onClose, onSubmit }) {
               </section>
             )}
 
-            {isDrink && addonOptions.length > 0 && (
+            {addonOptions.length > 0 && (
               <section>
                 <div className="mb-3 flex items-baseline justify-between gap-3">
                   <p className="opt-label">Add-ons</p>

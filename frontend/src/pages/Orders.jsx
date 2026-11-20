@@ -4,7 +4,7 @@ import { METHOD_LABEL, ORDER_TYPE_LABEL, PAYMENT_LABEL, fmtDateTime, lineSummary
 
 const STEPS = ["pending", "completed"]
 
-function OrderCard({ order }) {
+function OrderCard({ order, onDelete }) {
   // older orders may still carry preparing / ready — they count as pending
   const done = order.status === "completed"
   const cancelled = order.status === "cancelled"
@@ -65,6 +65,21 @@ function OrderCard({ order }) {
           <strong>Deliver to:</strong> {order.delivery_address}
         </p>
       )}
+      <div className="mt-4 flex justify-end">
+        <button
+          type="button"
+          className="btn-sm danger"
+          onClick={() =>
+            window.confirm(
+              done || cancelled
+                ? `Delete order ${order.code} from your list?`
+                : `Order ${order.code} is still pending. Delete it from your list anyway? The cafe will still have your order.`,
+            ) && onDelete(order.code)
+          }
+        >
+          Delete order
+        </button>
+      </div>
       {!done && !cancelled && (
         <p className="mt-4 rounded-xl bg-earth-100 p-3 text-xs leading-5 text-earth-700">
           {needsReceipt(order.payment_method)
@@ -80,7 +95,7 @@ function OrderCard({ order }) {
 }
 
 export default function OrdersPage({ navigate, myOrders }) {
-  const { orders, loading, track } = myOrders
+  const { orders, loading, track, remove } = myOrders
   const [code, setCode] = useState("")
 
   return (
@@ -122,7 +137,7 @@ export default function OrdersPage({ navigate, myOrders }) {
               </PageLink>
             </div>
           ) : (
-            orders.map((o) => <OrderCard key={o.id} order={o} />)
+            orders.map((o) => <OrderCard key={o.id} order={o} onDelete={remove} />)
           )}
         </div>
       </section>
