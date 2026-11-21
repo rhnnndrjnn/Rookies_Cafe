@@ -84,8 +84,11 @@ async function createOnce(path, payload) {
 async function objectExists(path) {
   const bucket = requireStorage()
   const { data, error } = await bucket.exists(path)
+  // storage-js reports "file not found" as { data: false, error } — that is a normal "no", not a failure.
+  if (data === true) return true
+  if (data === false) return false
   if (error) throw new Error("Couldn’t check the voucher right now. Please try again.")
-  return !!data
+  return false
 }
 
 /** Review step: reserve the voucher for this email. false = this email already got one. */
