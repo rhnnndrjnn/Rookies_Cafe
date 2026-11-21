@@ -11,7 +11,13 @@ import { rules, useLiveForm } from "../lib/validate.js"
 const RULES = {
   name: rules.name,
   email: rules.email,
-  comment: (v) => (String(v || "").length > 500 ? "Please keep your comment under 500 characters." : ""),
+  comment: (v) => {
+    const t = String(v || "").trim()
+    if (!t) return "Please tell us a little about your visit."
+    if (t.length < 5) return "Please write at least a few words."
+    if (t.length > 500) return "Please keep your comment under 500 characters."
+    return ""
+  },
 }
 
 function StarIcon({ filled, size = 30 }) {
@@ -36,7 +42,7 @@ function StarRating({ label, hint, value, onChange, error }) {
     <div className="rounded-2xl border border-earth-300 bg-white/50 p-4">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
         <div className="min-w-0">
-          <p className="text-sm font-semibold">{label}</p>
+          <p className="text-sm font-semibold">{label} <span className="text-[#8F3B31]" aria-hidden="true">*</span></p>
           <p className="text-[11px] text-earth-600">{hint}</p>
         </div>
         <span className="min-w-[72px] text-right text-xs font-bold uppercase tracking-[.1em] text-earth-600" aria-live="polite">
@@ -250,7 +256,10 @@ export default function FeedbackPage({ navigate }) {
           ) : (
             <form onSubmit={submit} noValidate className="space-y-6">
               <div className="rounded-2xl border border-earth-300 bg-earth-50 p-5 shadow-md sm:p-8">
-                <p className="eyebrow">1 · Your ratings</p>
+                <p className="eyebrow">1 · Your ratings (all required)</p>
+                <p className="mt-2 text-xs text-earth-600" aria-live="polite">
+                  {RATING_FIELDS.filter((r) => ratings[r.id]).length} of {RATING_FIELDS.length} rated
+                </p>
                 <div className="mt-5 grid gap-3 sm:grid-cols-2">
                   {RATING_FIELDS.map((r, i) => (
                     <div key={r.id} className={i === 0 ? "sm:col-span-2" : ""}>
@@ -265,7 +274,7 @@ export default function FeedbackPage({ navigate }) {
                   ))}
                 </div>
                 <label className="mt-5 block">
-                  <span className="opt-label">Anything else you’d like to tell us? (optional)</span>
+                  <span className="opt-label">Your comments <span className="text-[#8F3B31]">*</span></span>
                   <textarea
                     value={comment}
                     onChange={(e) => setComment(e.target.value)}
