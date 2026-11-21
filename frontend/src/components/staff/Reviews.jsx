@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { Icon } from "../ui.jsx"
-import { deleteMessage, markMessage } from "../../lib/db.js"
+import { deleteMessage, markMessage, setReviewPublic } from "../../lib/db.js"
 import { fmtDateTime } from "../../lib/constants.js"
 import { RATING_FIELDS, RATING_WORDS, averageRating, parseReview } from "../../lib/reviews.js"
 import { isVoucherUsed, orderVoucher } from "../../lib/voucher.js"
@@ -61,11 +61,21 @@ export default function ReviewsPanel({ messages, orders, canDelete }) {
 
   const unread = reviews.filter((r) => !r.read).length
   const overall = averageRating(reviews, "overall")
+  const shownCount = reviews.filter((r) => r.show_public).length
   const usedCount = reviews.filter((r) => r.parsed.voucher && isUsed(r.parsed.voucher)).length
 
   const toggle = async (r) => {
     setOpenId(openId === r.id ? null : r.id)
     if (!r.read) await markMessage(r.id, true)
+  }
+  const togglePublic = async (r) => {
+    const next = !r.show_public
+    try {
+      await setReviewPublic(r.id, next)
+      notify(next ? "Added to the customer page" : "Hidden from the customer page", next ? "Customers can now see this review." : "", { tone: "success" })
+    } catch (e) {
+      notify("Could not update", e.message, { tone: "error" })
+    }
   }
   const remove = async (r) => {
     if (!window.confirm("Delete this review? The customer's voucher stays locked, so they can't claim another.")) return
@@ -82,6 +92,12 @@ export default function ReviewsPanel({ messages, orders, canDelete }) {
       <PanelHeader eyebrow="Private · owner only" title="Reviews & Feedback">
         <span className="badge">{unread} new</span>
       </PanelHeader>
+
+      <p className="mb-4 rounded-xl bg-earth-100 p-3 text-xs leading-5 text-earth-700">
+        <strong>On the customer page: {shownCount} of {reviews.length}.</strong> Customers only see the reviews you switch on
+        (open a review and press “Show on customer page”). Their average and comments on the Feedback page are built from those reviews only;
+        the numbers below count every review.
+      </p>
 
       <div className="mb-5 grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
         <div className="rounded-2xl border border-earth-300 bg-earth-50 p-4 shadow-sm">
@@ -137,6 +153,7 @@ export default function ReviewsPanel({ messages, orders, canDelete }) {
                     <span className="mt-1 flex flex-wrap items-center gap-2">
                       <Stars value={r.parsed.ratings.overall || 0} />
                       <span className="text-xs font-semibold">{RATING_WORDS[r.parsed.ratings.overall] || ""}</span>
+                      {r.show_public && <span className="badge completed">👁 On customer page</span>}
                       {r.parsed.voucher && (
                         <span className={`badge ${isUsed(r.parsed.voucher) ? "cancelled" : "completed"}`}>
                           🎟 {order
@@ -167,6 +184,13 @@ export default function ReviewsPanel({ messages, orders, canDelete }) {
                       <a className="btn-sm solid" href={`mailto:${r.email}?subject=${encodeURIComponent("Thank you for your review — Rookies Cafe Teresa Rizal")}`}>
                         <Icon name="mail" size={14} /> Reply by email
                       </a>
+                      <button
+                        className={`btn-sm ${r.show_public ? "" : "solid"}`}
+                        onClick={() => togglePublic(r)}
+                        aria-pressed={!!r.show_public}
+                      >
+                        <Icon name="eye" size={14} /> {r.show_public ? "Hide from customer page" : "Show on customer page"}
+                      </button>
                       <button className="btn-sm" onClick={() => markMessage(r.id, false)}>Mark new</button>
                       {canDelete && (
                         <button className="btn-sm danger" onClick={() => remove(r)}>

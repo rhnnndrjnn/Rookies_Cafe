@@ -489,6 +489,8 @@ export async function updateBooking(booking, patch, notifyText) {
 /* ------------------------------------------------------------------ */
 export const getMessages = () => list("messages")
 export const markMessage = (id, read) => update("messages", id, { read })
+/** Owner: include / hide one review in the public "What our customers say" section. */
+export const setReviewPublic = (id, show_public) => update("messages", id, { show_public })
 export const deleteMessage = (id) => remove("messages", id)
 
 export async function sendMessage({ name, email, message }) {
@@ -549,8 +551,8 @@ export async function submitReview({ name, email, ratings, comment }) {
 }
 
 /**
- * Public: overall review numbers (count, averages, star spread) for the Feedback page.
- * Never returns names, emails, comments or voucher codes.
+ * Public: the reviews the owner chose to show (count, averages, star spread and their comments).
+ * Names are shortened to first name + last initial; emails and voucher codes are never returned.
  */
 export async function getReviewSummary() {
   requireDatabase()

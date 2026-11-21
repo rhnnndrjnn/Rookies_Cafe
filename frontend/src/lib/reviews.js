@@ -33,18 +33,39 @@ export const averageRating = (reviews, field) => {
   return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0
 }
 
+/** "Maria Dela Cruz" -> "Maria D." — the public page never shows a full name. */
+export const publicName = (name) => {
+  const parts = String(name || "").trim().split(/\s+/).filter(Boolean)
+  if (!parts.length) return "Customer"
+  return parts.length > 1 ? `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}.` : parts[0]
+}
+
 /**
- * Aggregate numbers for the public Feedback page: { count, averages, distribution }.
- * Same shape as the `review_summary()` database function (supabase/migration_v10.sql), so demo
- * mode and the real database render identically. Contains no personal data.
+ * What the public Feedback page shows: { count, averages, distribution, reviews } built ONLY from
+ * reviews the owner switched on (`show_public`). Same shape as the `review_summary()` database
+ * function (supabase/migration_v11.sql), so demo mode and the real database render identically.
+ * Contains no emails or voucher codes.
  */
 export function summarizeReviews(messages) {
-  const reviews = (messages || []).map((m) => ({ parsed: parseReview(m) })).filter((r) => r.parsed)
+  const reviews = (messages || [])
+    .filter((m) => m.show_public)
+    .map((m) => ({ ...m, parsed: parseReview(m) }))
+    .filter((r) => r.parsed)
   const averages = Object.fromEntries(RATING_FIELDS.map((f) => [f.id, averageRating(reviews, f.id)]))
   const distribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
   reviews.forEach((r) => {
     const n = Math.round(Number(r.parsed.ratings?.overall))
     if (n >= 1 && n <= 5) distribution[n] += 1
   })
-  return { count: reviews.length, averages, distribution }
+  const items = reviews
+    .filter((r) => r.parsed.comment.trim() && Number(r.parsed.ratings?.overall) >= 1)
+    .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
+    .slice(0, 30)
+    .map((r) => ({
+      name: publicName(r.name),
+      overall: Number(r.parsed.ratings.overall),
+      comment: r.parsed.comment.trim().slice(0, 500),
+      created_at: r.created_at,
+    }))
+  return { count: reviews.length, averages, distribution, reviews: items }
 }

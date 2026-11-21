@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { FieldMessage, Icon, Input, PageLink } from "../components/ui.jsx"
 import { VOUCHER_AMOUNT, checkVoucher, getLocalVoucher, saveLocalVoucher, voucherCodeFor } from "../lib/voucher.js"
 import { isEmailVerified, sendEmailCode, verifyEmailCode } from "../lib/emailVerify.js"
@@ -132,6 +132,8 @@ function VoucherCard({ code, used, navigate, justEarned }) {
 /** Public, anonymous overview of every review collected so far. */
 function ReviewSummary({ refreshKey }) {
   const [summary, setSummary] = useState(null)
+  const rowRef = useRef(null)
+  const scrollRow = (dir) => rowRef.current?.scrollBy({ left: dir * 320, behavior: "smooth" })
   useEffect(() => {
     let alive = true
     getReviewSummary()
@@ -144,6 +146,7 @@ function ReviewSummary({ refreshKey }) {
 
   if (!summary || !summary.count) return null
   const { count, averages, distribution } = summary
+  const items = summary.reviews || []
   const overall = Number(averages?.overall) || 0
   return (
     <section className="border-b border-earth-300 bg-earth-50 px-5 py-8 sm:px-8 lg:px-12">
@@ -192,6 +195,40 @@ function ReviewSummary({ refreshKey }) {
             </div>
           ))}
         </div>
+
+        {items.length > 0 && (
+          <div className="mt-6 border-t border-earth-300 pt-5">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs font-semibold text-earth-600">
+                <span aria-hidden="true">←→ </span>Scroll sideways to read more reviews
+              </p>
+              <div className="hidden gap-2 sm:flex">
+                <button type="button" onClick={() => scrollRow(-1)} className="carousel-button rotate-180" aria-label="Previous reviews">
+                  <Icon name="arrow" />
+                </button>
+                <button type="button" onClick={() => scrollRow(1)} className="carousel-button" aria-label="Next reviews">
+                  <Icon name="arrow" />
+                </button>
+              </div>
+            </div>
+            <ul ref={rowRef} className="no-scrollbar mt-3 flex snap-x gap-3 overflow-x-auto pb-1" aria-label="Customer reviews">
+              {items.map((r, i) => (
+                <li
+                  key={i}
+                  className="flex min-w-[78vw] snap-start flex-col rounded-2xl border border-earth-300 bg-white/60 p-4 sm:min-w-[300px] sm:max-w-[300px]"
+                >
+                  <span className="flex gap-0.5" role="img" aria-label={`${r.overall} out of 5 stars`}>
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <StarIcon key={n} filled={n <= Math.round(r.overall)} size={16} />
+                    ))}
+                  </span>
+                  <p className="mt-2 flex-1 whitespace-pre-wrap break-words text-sm leading-6">“{r.comment}”</p>
+                  <p className="mt-3 text-xs font-semibold text-earth-700">{r.name}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </section>
   )
