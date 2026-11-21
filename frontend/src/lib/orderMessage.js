@@ -1,3 +1,4 @@
+import { orderVoucher, plainNote } from "./voucher.js"
 import { BUSINESS, ORDER_TYPE_LABEL, METHOD_LABEL, fmtDay, lineSummary, peso } from "./constants.js"
 
 const timeText = (iso) =>
@@ -22,8 +23,16 @@ export function buildOrderMessage(order, { lalamove = false } = {}) {
     const detail = lineSummary(l)
     lines.push(`${i + 1}. ${l.qty}x ${l.name}${detail ? ` (${detail})` : ""} — ${peso(l.qty * l.unitPrice)}`)
   })
-  lines.push("", `Total: ${peso(order.total)}`)
-  if (order.note) lines.push(`Note: ${order.note}`)
+  const voucher = orderVoucher(order)
+  lines.push("")
+  if (voucher) {
+    lines.push(
+      `Subtotal: ${peso(voucher.subtotal)}`,
+      `🎟 VOUCHER USED: ${voucher.code} (-${peso(voucher.amount)})`,
+    )
+  }
+  lines.push(`Total: ${peso(order.total)}`)
+  if (plainNote(order.note)) lines.push(`Note: ${plainNote(order.note)}`)
   if (order.payment_method !== "cash")
     lines.push("", `I'll send my ${METHOD_LABEL[order.payment_method]} payment screenshot here.`)
   return lines.join("\n")

@@ -3,6 +3,7 @@ import { Icon } from "../ui.jsx"
 import { METHOD_LABEL, ORDER_TYPE_LABEL, PAYMENT_LABEL, STATUS_LABEL, fmtDateTime, peso } from "../../lib/constants.js"
 import { PanelHeader } from "./Shell.jsx"
 import { deleteOrder } from "../../lib/db.js"
+import { orderVoucher } from "../../lib/voucher.js"
 import { useNotify } from "../../lib/notify.jsx"
 
 const RANGES = [
@@ -61,7 +62,7 @@ export default function TransactionsPanel({ orders }) {
   const exportCsv = () => {
     const esc = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`
     const lines = [
-      ["Date", "Code", "Customer", "Type", "Method", "Payment", "Status", "Items", "Total"].join(","),
+      ["Date", "Code", "Customer", "Type", "Method", "Payment", "Status", "Items", "Voucher code", "Voucher discount", "Total"].join(","),
       ...rows.map((o) =>
         [
           new Date(o.created_at).toLocaleString("en-PH"),
@@ -72,6 +73,8 @@ export default function TransactionsPanel({ orders }) {
           o.payment_status,
           o.status,
           o.items.map((l) => `${l.qty}x ${l.name}`).join("; "),
+          orderVoucher(o)?.code || "",
+          orderVoucher(o) ? orderVoucher(o).amount.toFixed(2) : "",
           Number(o.total).toFixed(2),
         ].map(esc).join(","),
       ),
@@ -126,6 +129,7 @@ export default function TransactionsPanel({ orders }) {
             </div>
             <div className="mt-2 flex flex-wrap gap-1.5">
               <span className="badge">{ORDER_TYPE_LABEL[o.order_type] || "—"}</span>
+              {orderVoucher(o) && <span className="badge completed">🎟 −{peso(orderVoucher(o).amount)}</span>}
               <span className="badge">{METHOD_LABEL[o.payment_method] || o.payment_method}</span>
               <span className={`badge ${o.payment_status}`}>{PAYMENT_LABEL[o.payment_status]}</span>
               <span className={`badge ${o.status}`}>{STATUS_LABEL[o.status]}</span>
@@ -154,7 +158,10 @@ export default function TransactionsPanel({ orders }) {
                 <td>{METHOD_LABEL[o.payment_method] || o.payment_method}</td>
                 <td><span className={`badge ${o.payment_status}`}>{PAYMENT_LABEL[o.payment_status]}</span></td>
                 <td><span className={`badge ${o.status}`}>{STATUS_LABEL[o.status]}</span></td>
-                <td className="text-right font-semibold">{peso(o.total)}</td>
+                <td className="text-right font-semibold">
+                  {orderVoucher(o) && <span className="badge completed mr-2" title={orderVoucher(o).code}>🎟 −{peso(orderVoucher(o).amount)}</span>}
+                  {peso(o.total)}
+                </td>
                 <td className="text-right">
                   <button className="btn-sm danger" onClick={() => del(o)} aria-label={`Delete ${o.code}`}>
                     <Icon name="trash" size={14} />

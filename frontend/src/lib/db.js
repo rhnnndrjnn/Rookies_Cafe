@@ -3,6 +3,16 @@
 // site (including both staff portals) can be tried without a backend.
 import { supabase, isDemo, hasDatabase } from "./supabase"
 import {
+  claimVoucher,
+  getLocalVoucher,
+  normalizeEmail,
+  orderVoucher,
+  saveLocalVoucher,
+  voucherCodeFor,
+} from "./voucher"
+import { encodeReview } from "./reviews"
+import { isEmailVerified } from "./emailVerify"
+import {
   BOOKING_HOLDS_DAY,
   BUCKET,
   METHOD_LABEL,
@@ -299,7 +309,9 @@ export async function createOrder(order) {
     await pushNotification({
       type: "order",
       title: "New order " + saved.code,
-      body: `${saved.customer_name} · ₱${Number(saved.total).toFixed(2)} · ${
+      body: `${saved.customer_name} · ₱${Number(saved.total).toFixed(2)}${
+        orderVoucher(saved) ? ` · 🎟 voucher −₱${orderVoucher(saved).amount}` : ""
+      } · ${
         METHOD_LABEL[saved.payment_method] || saved.payment_method
       } · ${ORDER_TYPE_LABEL[saved.order_type] || ""}${needsReceipt(saved.payment_method) ? " (check Messenger for proof)" : ""}`,
       order_code: saved.code,
@@ -491,6 +503,49 @@ export async function sendMessage({ name, email, message }) {
     console.error("Message saved, but its notification could not be created:", notificationError)
   }
   return saved
+}
+
+/**
+ * Customer review + ₱100 voucher. One voucher per email and per browser, with no database change:
+ * the review is a tagged row in `messages`, the one-time lock is a storage file (see voucher.js).
+ * Throws an Error with `.code = "VOUCHER_TAKEN"` when this email/browser already got its voucher.
+ */
+export async function submitReview({ name, email, ratings, comment }) {
+  requireDatabase()
+  const taken = (message) => Object.assign(new Error(message), { code: "VOUCHER_TAKEN" })
+  if (!isEmailVerified(email)) throw new Error("Please verify your email with the code we send you first.")
+  const code = await voucherCodeFor(email)
+  const local = getLocalVoucher()
+
+  if (local?.reviewSaved) throw taken("This browser has already received its ₱100 voucher.")
+  if (local && local.code !== code)
+    throw taken("Please use the same email you entered earlier on this device to finish your review.")
+
+  if (!local) {
+    const created = await claimVoucher(code)
+    if (!created) throw taken("This email has already received a ₱100 review voucher.")
+    saveLocalVoucher({ email: normalizeEmail(email), code, claimedAt: new Date().toISOString(), reviewSaved: false })
+  }
+
+  // If saving fails here the voucher stays reserved for this browser, so pressing Submit again
+  // simply retries the review (the `local` branch above skips the claim).
+  await insert("messages", {
+    name,
+    email: email.trim(),
+    message: encodeReview({ ratings, comment, voucher: code }),
+    read: false,
+  })
+  saveLocalVoucher({ reviewSaved: true })
+  try {
+    await pushNotification({
+      type: "review",
+      title: "New review from " + name,
+      body: `★ ${ratings.overall}/5 overall · service ★ ${ratings.service}/5 · voucher ${code}`,
+    })
+  } catch (notificationError) {
+    console.error("Review saved, but its notification could not be created:", notificationError)
+  }
+  return { code }
 }
 
 export const getNotifications = () => list("notifications")

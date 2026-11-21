@@ -6,6 +6,8 @@ import { AccountPanel, LoginScreen, NotificationBell, StaffLayout, WrongRole } f
 import OrdersPanel, { OrderStats } from "../components/staff/Orders.jsx"
 import TransactionsPanel from "../components/staff/Transactions.jsx"
 import MessagesPanel from "../components/staff/Messages.jsx"
+import ReviewsPanel from "../components/staff/Reviews.jsx"
+import { isReview, parseReview, averageRating } from "../lib/reviews.js"
 import ProductsManager from "../components/staff/Products.jsx"
 import PaymentSettings, { StoreToggle } from "../components/staff/Settings.jsx"
 import EventsPanel from "../components/staff/Events.jsx"
@@ -17,7 +19,9 @@ import EventsEditor from "../components/staff/EventsEditor.jsx"
 import { PanelHeader } from "../components/staff/Shell.jsx"
 import { STATUS_LABEL, fmtDateTime, peso } from "../lib/constants.js"
 
-function Overview({ orders, bookings, goEvents, goOrders }) {
+function Overview({ orders, bookings, reviews = [], goEvents, goOrders, goReviews }) {
+  const parsedReviews = reviews.map((m) => ({ ...m, parsed: parseReview(m) })).filter((m) => m.parsed)
+  const newReviews = parsedReviews.filter((m) => !m.read).length
   const recent = orders.slice(0, 6)
   const pendingEvents = bookings.filter((b) => b.status === "pending").length
   return (
@@ -33,6 +37,19 @@ function Overview({ orders, bookings, goEvents, goOrders }) {
             <span className="block text-xs opacity-80">Open the calendar to confirm or decline.</span>
           </span>
           <span className="text-xs font-bold uppercase tracking-[.1em]">Review →</span>
+        </button>
+      )}
+      {parsedReviews.length > 0 && (
+        <button
+          onClick={goReviews}
+          className="mb-5 flex w-full flex-wrap items-center justify-between gap-2 rounded-2xl border border-earth-300 bg-earth-50 px-5 py-4 text-left text-sm shadow-sm"
+        >
+          <span>
+            <strong>★ {averageRating(parsedReviews, "overall").toFixed(1)} / 5</strong> from {parsedReviews.length} {parsedReviews.length === 1 ? "review" : "reviews"}
+            {newReviews > 0 && <span className="badge ml-2">{newReviews} new</span>}
+            <span className="block text-xs text-earth-600">Private — only you can see customer feedback.</span>
+          </span>
+          <span className="text-xs font-bold uppercase tracking-[.1em]">Open →</span>
         </button>
       )}
       <OrderStats orders={orders} />
@@ -62,13 +79,16 @@ function Overview({ orders, bookings, goEvents, goOrders }) {
 function OwnerApp({ session, setSession, navigate, onLogout }) {
   const data = useStaffData()
   const [tab, setTab] = useState("overview")
+  const plainMessages = data.messages.filter((m) => !isReview(m)) // reviews live in their own tab
+  const reviewMessages = data.messages.filter(isReview)
   const tabs = [
     { id: "overview", label: "Overview", icon: "chart" },
     { id: "orders", label: "Orders", icon: "bag", badge: data.orders.filter((o) => o.status !== "completed" && o.status !== "cancelled").length },
     { id: "products", label: "Products", icon: "cup" },
     { id: "events", label: "Event bookings", icon: "calendar", badge: data.bookings.filter((b) => b.status === "pending").length },
     { id: "transactions", label: "Transactions", icon: "receipt" },
-    { id: "messages", label: "Messages", icon: "mail", badge: data.messages.filter((m) => !m.read).length },
+    { id: "messages", label: "Messages", icon: "mail", badge: plainMessages.filter((m) => !m.read).length },
+    { id: "reviews", label: "Reviews & Feedback", icon: "eye", badge: reviewMessages.filter((m) => !m.read).length },
     { id: "homepage", label: "Home page", icon: "eye" },
     { id: "about", label: "About page", icon: "eye" },
     { id: "eventspage", label: "Events page", icon: "eye" },
@@ -89,7 +109,7 @@ function OwnerApp({ session, setSession, navigate, onLogout }) {
       right={
         <>
           <StoreToggle settings={data.settings} session={session} />
-          <NotificationBell canDelete notifications={data.notifications} navigate={(n) => setTab(n.type === "message" ? "messages" : n.type === "booking" ? "events" : "orders")} />
+          <NotificationBell canDelete notifications={data.notifications} navigate={(n) => setTab(n.type === "message" ? "messages" : n.type === "review" ? "reviews" : n.type === "booking" ? "events" : "orders")} />
         </>
       }
     >
@@ -99,12 +119,13 @@ function OwnerApp({ session, setSession, navigate, onLogout }) {
         <p className="rounded-2xl bg-[#F3DEDB] p-6 text-sm text-[#8F3B31]">{data.error}</p>
       ) : (
         <>
-          {tab === "overview" && <Overview orders={data.orders} bookings={data.bookings} goEvents={() => setTab("events")} goOrders={() => setTab("orders")} />}
+          {tab === "overview" && <Overview orders={data.orders} bookings={data.bookings} reviews={reviewMessages} goReviews={() => setTab("reviews")} goEvents={() => setTab("events")} goOrders={() => setTab("orders")} />}
           {tab === "orders" && <OrdersPanel orders={data.orders} storeOpen={data.settings.store_open?.open !== false} />}
           {tab === "products" && <ProductsManager products={data.products} settings={data.settings} />}
           {tab === "events" && <EventsPanel bookings={data.bookings} settings={data.settings} />}
           {tab === "transactions" && <TransactionsPanel orders={data.orders} />}
-          {tab === "messages" && <MessagesPanel messages={data.messages} canDelete />}
+          {tab === "messages" && <MessagesPanel messages={plainMessages} canDelete />}
+          {tab === "reviews" && <ReviewsPanel messages={data.messages} orders={data.orders} canDelete />}
           {tab === "homepage" && <HomeEditor settings={data.settings} products={data.products} />}
           {tab === "about" && <AboutEditor settings={data.settings} />}
           {tab === "eventspage" && <EventsEditor settings={data.settings} />}

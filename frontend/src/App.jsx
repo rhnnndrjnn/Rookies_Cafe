@@ -15,6 +15,7 @@ import BookPage from "./pages/Book.jsx"
 import CartPage from "./pages/Cart.jsx"
 import CheckoutPage from "./pages/Checkout.jsx"
 import OrdersPage from "./pages/Orders.jsx"
+import FeedbackPage from "./pages/Feedback.jsx"
 import OwnerPortal from "./pages/Owner.jsx"
 
 const customerPaths = [...navItems.map((i) => i.path), "/packages", "/book", "/cart", "/checkout"]
@@ -69,6 +70,7 @@ function CustomerSite({ route, navigate }) {
       />
     ),
     "/orders": <OrdersPage navigate={navigate} myOrders={myOrders} />,
+    "/feedback": <FeedbackPage navigate={navigate} />,
     "/contacts": <ContactsPage content={menu.settings.contacts} />,
     "/packages": <PackagesPage navigate={navigate} content={menu.settings.events} />,
     "/book": <BookPage navigate={navigate} content={menu.settings.events} bookingPolicy={menu.settings.booking_policy} />,

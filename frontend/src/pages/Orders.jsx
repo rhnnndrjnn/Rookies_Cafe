@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { Icon, PageLink, Spinner } from "../components/ui.jsx"
+import { orderVoucher } from "../lib/voucher.js"
 import { METHOD_LABEL, ORDER_TYPE_LABEL, PAYMENT_LABEL, fmtDateTime, lineSummary, messengerUrl, needsReceipt, peso } from "../lib/constants.js"
 
 const STEPS = ["pending", "completed"]
@@ -10,6 +11,7 @@ function OrderCard({ order, onDelete }) {
   const cancelled = order.status === "cancelled"
   const step = done ? 1 : 0
   const isDelivery = order.order_type === "delivery"
+  const voucher = orderVoucher(order)
 
   return (
     <article className="rounded-2xl border border-earth-300 bg-earth-50 p-5 shadow-md sm:p-6">
@@ -55,7 +57,16 @@ function OrderCard({ order, onDelete }) {
           </li>
         ))}
       </ul>
-      <p className="mt-2 flex justify-between border-t border-earth-300 pt-3 font-semibold">
+      {voucher && (
+        <div className="mt-2 space-y-1 border-t border-earth-300 pt-3 text-sm">
+          <p className="flex justify-between text-earth-700"><span>Subtotal</span><span>{peso(voucher.subtotal)}</span></p>
+          <p className="flex justify-between font-semibold text-[#1F5A2B]">
+            <span>🎟 Voucher {voucher.code}</span>
+            <span>−{peso(voucher.amount)}</span>
+          </p>
+        </div>
+      )}
+      <p className={`mt-2 flex justify-between ${voucher ? "" : "border-t border-earth-300 pt-3"} font-semibold`}>
         <span>Total</span>
         <span>{peso(order.total)}</span>
       </p>

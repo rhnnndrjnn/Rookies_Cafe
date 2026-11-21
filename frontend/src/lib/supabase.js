@@ -10,6 +10,12 @@ const key =
 
 // Shared data must never silently fall back to browser-only storage.
 export const supabase = url && key ? createClient(url, key) : null
+// A throw-away client that never stores a session. Used to verify customers' emails with a one-time
+// code without touching (or signing out) a staff member who is logged in on the same browser.
+export const makeIsolatedClient = () =>
+  url && key
+    ? createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } })
+    : null
 export const isDemo = false
 export const hasDatabase = !!supabase
 

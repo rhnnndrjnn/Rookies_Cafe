@@ -2,6 +2,7 @@ import { useMemo, useState } from "react"
 import { Icon, Modal } from "../ui.jsx"
 import { METHOD_LABEL, ORDER_TYPE_LABEL, PAYMENT_LABEL, STATUS_LABEL, fmtDateTime, lineSummary, needsReceipt, peso } from "../../lib/constants.js"
 import { updateOrder } from "../../lib/db.js"
+import { orderVoucher, plainNote } from "../../lib/voucher.js"
 import { useNotify } from "../../lib/notify.jsx"
 import { PanelHeader } from "./Shell.jsx"
 
@@ -87,6 +88,7 @@ export default function OrdersPanel({ orders, storeOpen }) {
         <div className="grid gap-3 sm:gap-4 xl:grid-cols-2">
           {list.map((o) => {
             const busy = busyId === o.id
+            const voucher = orderVoucher(o)
             return (
               <article key={o.id} className="min-w-0 rounded-2xl border border-earth-300 bg-earth-50 p-4 shadow-sm sm:p-5">
                 <div className="flex flex-wrap items-start justify-between gap-2">
@@ -97,6 +99,7 @@ export default function OrdersPanel({ orders, storeOpen }) {
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
+                    {voucher && <span className="badge completed">🎟 Voucher −{peso(voucher.amount)}</span>}
                     <span className="badge">{ORDER_TYPE_LABEL[o.order_type] || "Pick up"}</span>
                     <span className={`badge ${isPending(o) ? "pending" : o.status}`}>{isPending(o) ? "Pending" : STATUS_LABEL[o.status]}</span>
                     <span className={`badge ${o.payment_status}`}>
@@ -123,13 +126,20 @@ export default function OrdersPanel({ orders, storeOpen }) {
                     <Icon name="pin" size={14} /> <span className="min-w-0 break-words"><strong>Deliver to:</strong> {o.delivery_address}</span>
                   </p>
                 )}
-                {o.note && (
+                {plainNote(o.note) && (
                   <p className="mt-2 rounded-lg bg-earth-100 p-2.5 text-xs text-earth-700">
-                    <strong>Note:</strong> {o.note}
+                    <strong>Note:</strong> {plainNote(o.note)}
                   </p>
                 )}
+                {voucher && (
+                  <div className="mt-2 rounded-lg border border-[#9CC9A3] bg-[#E3F1E5] p-2.5 text-xs leading-5 text-[#1F5A2B]">
+                    <p className="font-bold">🎟 Customer used a ₱{voucher.amount} review voucher</p>
+                    <p className="break-all">Code: {voucher.code}</p>
+                    <p>Subtotal {peso(voucher.subtotal)} − voucher {peso(voucher.amount)} = collect {peso(o.total)}</p>
+                  </div>
+                )}
                 <p className="mt-2 flex justify-between border-t border-earth-300 pt-3 font-semibold">
-                  <span>Total</span>
+                  <span>Total{voucher ? " to collect" : ""}</span>
                   <span>{peso(o.total)}</span>
                 </p>
 

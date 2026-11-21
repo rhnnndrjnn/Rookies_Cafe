@@ -1,4 +1,4 @@
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import AddressFields from "../components/AddressFields.jsx"
 import ClockPicker from "../components/ClockPicker.jsx"
 import CopyTemplate from "../components/CopyTemplate.jsx"
@@ -15,6 +15,16 @@ import {
 } from "../lib/constants.js"
 import { createOrder } from "../lib/db.js"
 import { rememberOrderCode } from "../lib/cart.js"
+import {
+  VOUCHER_AMOUNT,
+  checkVoucher,
+  cleanCode,
+  finishRedeem,
+  getLocalVoucher,
+  redeemVoucher,
+  saveLocalVoucher,
+  voucherNote,
+} from "../lib/voucher.js"
 import { useNotify } from "../lib/notify.jsx"
 import { buildOrderMessage, copyText, saveImage } from "../lib/orderMessage.js"
 import { DEFAULT_PROVINCE, DEFAULT_REGION, formatAddress, needsLalamove } from "../lib/phAddress.js"
@@ -159,6 +169,110 @@ function PaymentBox({ method, info, total }) {
   )
 }
 
+/** Optional ₱100 review voucher: the customer decides whether to use it on this order. */
+function VoucherBox({ voucher, onApply, onRemove, navigate }) {
+  const [local] = useState(getLocalVoucher)
+  const savedCode = local?.reviewSaved ? local.code : null
+  const [saved, setSaved] = useState(() => (!savedCode ? "none" : local.usedAt ? "used" : "checking"))
+  const [typed, setTyped] = useState("")
+  const [msg, setMsg] = useState("")
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    if (saved !== "checking") return
+    let alive = true
+    checkVoucher(savedCode)
+      .then((r) => {
+        if (!alive) return
+        if (r.used) saveLocalVoucher({ usedAt: new Date().toISOString() })
+        setSaved(r.used ? "used" : "available")
+      })
+      // Couldn't verify (offline?) — still offer it; the atomic check happens when the order is placed.
+      .catch(() => alive && setSaved("available"))
+    return () => {
+      alive = false
+    }
+  }, [saved, savedCode])
+
+  const applyTyped = async (e) => {
+    e.preventDefault()
+    const code = cleanCode(typed)
+    if (!code) return
+    setBusy(true)
+    setMsg("")
+    try {
+      const r = await checkVoucher(code)
+      if (!r.valid) setMsg("That voucher code isn’t valid.")
+      else if (r.used) setMsg("That voucher has already been used.")
+      else {
+        onApply(code)
+        setTyped("")
+      }
+    } catch (err) {
+      setMsg(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const header = (
+    <p className="text-[11px] font-bold uppercase tracking-[.14em] text-earth-600">🎟 Review voucher (optional)</p>
+  )
+
+  if (voucher)
+    return (
+      <div className="mt-4 rounded-xl border border-[#9CC9A3] bg-[#E3F1E5] p-3 text-xs leading-5 text-[#1F5A2B]">
+        <p className="font-bold">₱{VOUCHER_AMOUNT} voucher applied</p>
+        <p className="break-all">{voucher.code}</p>
+        <button type="button" onClick={onRemove} className="mt-1 font-semibold underline underline-offset-4">
+          Don’t use it on this order
+        </button>
+      </div>
+    )
+
+  return (
+    <div className="mt-4 rounded-xl bg-earth-100 p-3">
+      {header}
+      {saved === "checking" && <p className="mt-2 text-xs text-earth-600">Checking your voucher…</p>}
+      {(saved === "available") && (
+        <label className="mt-2 flex cursor-pointer items-start gap-2.5 text-sm">
+          <input type="checkbox" className="mt-1 size-4 accent-[#614738]" checked={false} onChange={() => onApply(savedCode)} />
+          <span>
+            <strong>Use my ₱{VOUCHER_AMOUNT} voucher</strong>
+            <span className="block text-[11px] text-earth-600">Your choice — skip it to keep it for a later order.</span>
+          </span>
+        </label>
+      )}
+      {saved === "used" && <p className="mt-2 text-xs text-earth-600">Your ₱{VOUCHER_AMOUNT} voucher has already been used.</p>}
+      {saved === "none" && (
+        <>
+          <form onSubmit={applyTyped} className="mt-2 flex gap-2">
+            <input
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+              placeholder="ROOKIE-XXXXXXXXXX"
+              aria-label="Voucher code"
+              className="input-box min-w-0 flex-1 !py-2 text-sm uppercase"
+              maxLength={20}
+            />
+            <button disabled={busy || !typed.trim()} className="btn-sm solid shrink-0 disabled:opacity-50">
+              {busy ? "…" : "Apply"}
+            </button>
+          </form>
+          {msg && <p role="alert" className="mt-2 text-xs text-[#8F3B31]">{msg}</p>}
+          <button
+            type="button"
+            onClick={() => navigate("/feedback")}
+            className="mt-2 text-left text-[11px] font-semibold underline underline-offset-4"
+          >
+            No voucher yet? Leave a review and get ₱{VOUCHER_AMOUNT} off.
+          </button>
+        </>
+      )}
+    </div>
+  )
+}
+
 function MessengerButton({ className = "primary-button", children, text = "" }) {
   return (
     <a href={messengerUrl(text)} target="_blank" rel="noreferrer" className={className}>
@@ -193,6 +307,7 @@ export default function CheckoutPage({ cart, navigate, products, settings, store
   const [copiedAgain, setCopiedAgain] = useState(false)
   const [copiedText, setCopiedText] = useState("") // template the customer has already copied
   const codeRef = useRef(makeOrderCode())
+  const [voucher, setVoucher] = useState(null) // { code } when the customer chose to use a voucher
 
   const arrival = win.available && storeOpen ? arrivalAt.toISOString() : ""
   const f = useLiveForm(
@@ -201,7 +316,9 @@ export default function CheckoutPage({ cart, navigate, products, settings, store
   )
 
   const items = cart.selectedItems
-  const total = cart.selectedTotal
+  const subtotal = cart.selectedTotal
+  const discount = voucher ? Math.min(VOUCHER_AMOUNT, subtotal) : 0
+  const total = subtotal - discount
   const problem = items.some((l) => lineProblem(l, products))
   const isDelivery = orderType === "delivery"
   const lalamove = isDelivery && needsLalamove(addr.province, addr.city)
@@ -215,7 +332,11 @@ export default function CheckoutPage({ cart, navigate, products, settings, store
     delivery_address: isDelivery ? formatAddress(addr) : "",
     payment_method: method,
     arrival_time: arrivalAt.toISOString(),
-    note: [note.trim(), lalamove ? "Lalamove needed (outside Teresa) — other charges may apply, confirm on Messenger" : ""].filter(Boolean).join(" · "),
+    note: [
+      note.trim(),
+      lalamove ? "Lalamove needed (outside Teresa) — other charges may apply, confirm on Messenger" : "",
+      voucher ? voucherNote(voucher.code, discount) : "", // shows up on the owner's order + receipt
+    ].filter(Boolean).join(" · "),
     total,
     items: items.map(({ id, image, selected, ...rest }) => rest), // eslint-disable-line no-unused-vars
   })
@@ -256,7 +377,16 @@ export default function CheckoutPage({ cart, navigate, products, settings, store
 
     setBusy(true)
     try {
+      if (voucher) {
+        // One-time lock: fails if this voucher was spent meanwhile (e.g. on another device).
+        const r = await redeemVoucher(voucher.code, draft.code)
+        if (!r.ok) {
+          setVoucher(null)
+          throw new Error("That voucher was just used on another order, so it was removed. Please re-copy your order template and try again.")
+        }
+      }
       const order = await createOrder(draft)
+      if (voucher) finishRedeem(voucher.code, order.code)
       rememberOrderCode(order.code)
       cart.removeSelected() // only what was bought leaves the cart
       const wasCopied = await copied
@@ -322,6 +452,15 @@ export default function CheckoutPage({ cart, navigate, products, settings, store
             <div className="mt-6 border-t border-earth-300 pt-6 text-left">
               <p className="eyebrow">Pay with {METHOD_LABEL[order.payment_method]}</p>
               <PaymentBox method={order.payment_method} info={payInfo} total={order.total} />
+            </div>
+          )}
+
+          {!getLocalVoucher()?.reviewSaved && (
+            <div className="mt-6 rounded-xl border border-[#E4CC87] bg-[#F8EBC6] p-4 text-left text-xs leading-5 text-[#6B5311]">
+              <strong>🎟 Get ₱{VOUCHER_AMOUNT} off your next order.</strong> Rate your experience with us and we’ll give you a voucher.{" "}
+              <button type="button" onClick={() => navigate("/feedback")} className="font-bold underline underline-offset-4">
+                Leave a review
+              </button>
             </div>
           )}
 
@@ -526,6 +665,13 @@ export default function CheckoutPage({ cart, navigate, products, settings, store
                 </li>
               ))}
             </ul>
+            <VoucherBox voucher={voucher} onApply={(code) => setVoucher({ code })} onRemove={() => setVoucher(null)} navigate={navigate} />
+            {voucher && (
+              <div className="mt-3 space-y-1 text-sm">
+                <p className="flex justify-between text-earth-700"><span>Subtotal</span><span>{peso(subtotal)}</span></p>
+                <p className="flex justify-between font-semibold text-[#1F5A2B]"><span>Voucher</span><span>−{peso(discount)}</span></p>
+              </div>
+            )}
             <div className="mt-2 flex items-center justify-between border-t border-earth-300 pt-4">
               <span className="font-semibold">Total</span>
               <span className="display-title text-2xl">{peso(total)}</span>

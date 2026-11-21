@@ -9,6 +9,7 @@ export const navItems = [
   { label: "Menu", path: "/menu" },
   { label: "Events", path: "/packages" },
   { label: "Orders", path: "/orders" },
+  { label: "Feedback", path: "/feedback" },
   { label: "Contacts", path: "/contacts" },
 ]
 
