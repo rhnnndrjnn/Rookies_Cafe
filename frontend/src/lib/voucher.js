@@ -102,6 +102,9 @@ export async function checkVoucher(rawCode) {
   return { valid, used, code }
 }
 
+/** Owner dashboard: has this voucher been spent? (the same lock checkout uses) */
+export const isVoucherUsed = (rawCode) => objectExists(usedPath(cleanCode(rawCode)))
+
 /**
  * Checkout: spend the voucher. Atomic — if two orders try at once only one wins.
  * If the order itself fails to save afterwards, the same browser may retry (pending flag).

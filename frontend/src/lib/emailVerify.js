@@ -23,7 +23,8 @@ const friendly = (error, fallback) => {
   if (/rate|too many|seconds|limit/i.test(msg) || error?.status === 429)
     return "Too many attempts. Please wait a minute and try again."
   if (/expired|invalid|token/i.test(msg)) return "That code is wrong or has expired. Check the code or request a new one."
-  return fallback
+  // Show Supabase's own reason too, so setup problems (SMTP, signups disabled…) are easy to spot.
+  return msg ? `${fallback} (${msg})` : fallback
 }
 
 /** Email a one-time code to the customer. */

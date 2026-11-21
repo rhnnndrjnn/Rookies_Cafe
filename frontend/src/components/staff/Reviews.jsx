@@ -1,9 +1,9 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Icon } from "../ui.jsx"
 import { deleteMessage, markMessage } from "../../lib/db.js"
 import { fmtDateTime } from "../../lib/constants.js"
 import { RATING_FIELDS, RATING_WORDS, averageRating, parseReview } from "../../lib/reviews.js"
-import { orderVoucher } from "../../lib/voucher.js"
+import { isVoucherUsed, orderVoucher } from "../../lib/voucher.js"
 import { useNotify } from "../../lib/notify.jsx"
 import { PanelHeader } from "./Shell.jsx"
 
@@ -43,9 +43,25 @@ export default function ReviewsPanel({ messages, orders, canDelete }) {
     return map
   }, [orders])
 
+  // The real "used" lock (same one the customer sees). An order note can be missing if the order
+  // failed to save or the owner deleted that transaction, so don't rely on orders alone.
+  const [lockUsed, setLockUsed] = useState({})
+  const codesKey = reviews.map((r) => r.parsed.voucher).filter(Boolean).join(",")
+  useEffect(() => {
+    let alive = true
+    const codes = codesKey ? codesKey.split(",") : []
+    Promise.all(codes.map((c) => isVoucherUsed(c).then((u) => [c, u]).catch(() => [c, null]))).then((pairs) => {
+      if (alive) setLockUsed(Object.fromEntries(pairs))
+    })
+    return () => {
+      alive = false
+    }
+  }, [codesKey, orders.length])
+  const isUsed = (code) => usedBy.has(code) || lockUsed[code] === true
+
   const unread = reviews.filter((r) => !r.read).length
   const overall = averageRating(reviews, "overall")
-  const usedCount = reviews.filter((r) => r.parsed.voucher && usedBy.has(r.parsed.voucher)).length
+  const usedCount = reviews.filter((r) => r.parsed.voucher && isUsed(r.parsed.voucher)).length
 
   const toggle = async (r) => {
     setOpenId(openId === r.id ? null : r.id)
@@ -122,8 +138,12 @@ export default function ReviewsPanel({ messages, orders, canDelete }) {
                       <Stars value={r.parsed.ratings.overall || 0} />
                       <span className="text-xs font-semibold">{RATING_WORDS[r.parsed.ratings.overall] || ""}</span>
                       {r.parsed.voucher && (
-                        <span className={`badge ${order ? "cancelled" : "completed"}`}>
-                          🎟 {order ? `Voucher used · ${order.code}` : "Voucher not used yet"}
+                        <span className={`badge ${isUsed(r.parsed.voucher) ? "cancelled" : "completed"}`}>
+                          🎟 {order
+                            ? `Voucher used · ${order.code}`
+                            : isUsed(r.parsed.voucher)
+                              ? "Voucher used · order record not found"
+                              : "Voucher not used yet"}
                         </span>
                       )}
                     </span>
