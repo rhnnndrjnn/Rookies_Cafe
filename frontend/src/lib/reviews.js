@@ -32,3 +32,19 @@ export const averageRating = (reviews, field) => {
   const vals = reviews.map((r) => Number(r.parsed.ratings?.[field])).filter((n) => n >= 1 && n <= 5)
   return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0
 }
+
+/**
+ * Aggregate numbers for the public Feedback page: { count, averages, distribution }.
+ * Same shape as the `review_summary()` database function (supabase/migration_v10.sql), so demo
+ * mode and the real database render identically. Contains no personal data.
+ */
+export function summarizeReviews(messages) {
+  const reviews = (messages || []).map((m) => ({ parsed: parseReview(m) })).filter((r) => r.parsed)
+  const averages = Object.fromEntries(RATING_FIELDS.map((f) => [f.id, averageRating(reviews, f.id)]))
+  const distribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+  reviews.forEach((r) => {
+    const n = Math.round(Number(r.parsed.ratings?.overall))
+    if (n >= 1 && n <= 5) distribution[n] += 1
+  })
+  return { count: reviews.length, averages, distribution }
+}

@@ -10,7 +10,7 @@ import {
   saveLocalVoucher,
   voucherCodeFor,
 } from "./voucher"
-import { encodeReview } from "./reviews"
+import { encodeReview, summarizeReviews } from "./reviews"
 import { isEmailVerified } from "./emailVerify"
 import {
   BOOKING_HOLDS_DAY,
@@ -546,6 +546,18 @@ export async function submitReview({ name, email, ratings, comment }) {
     console.error("Review saved, but its notification could not be created:", notificationError)
   }
   return { code }
+}
+
+/**
+ * Public: overall review numbers (count, averages, star spread) for the Feedback page.
+ * Never returns names, emails, comments or voucher codes.
+ */
+export async function getReviewSummary() {
+  requireDatabase()
+  if (isDemo) return summarizeReviews(readLocal("messages") || [])
+  const { data, error } = await supabase.rpc("review_summary")
+  if (error) throw error
+  return data
 }
 
 export const getNotifications = () => list("notifications")

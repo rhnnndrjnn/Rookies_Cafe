@@ -3,7 +3,7 @@ import { FieldMessage, Icon, Input, PageLink } from "../components/ui.jsx"
 import { VOUCHER_AMOUNT, checkVoucher, getLocalVoucher, saveLocalVoucher, voucherCodeFor } from "../lib/voucher.js"
 import { isEmailVerified, sendEmailCode, verifyEmailCode } from "../lib/emailVerify.js"
 import { RATING_FIELDS, RATING_WORDS } from "../lib/reviews.js"
-import { submitReview } from "../lib/db.js"
+import { getReviewSummary, submitReview } from "../lib/db.js"
 import { copyText } from "../lib/orderMessage.js"
 import { useNotify } from "../lib/notify.jsx"
 import { rules, useLiveForm } from "../lib/validate.js"
@@ -129,6 +129,74 @@ function VoucherCard({ code, used, navigate, justEarned }) {
   )
 }
 
+/** Public, anonymous overview of every review collected so far. */
+function ReviewSummary({ refreshKey }) {
+  const [summary, setSummary] = useState(null)
+  useEffect(() => {
+    let alive = true
+    getReviewSummary()
+      .then((s) => alive && setSummary(s))
+      .catch(() => alive && setSummary(null))
+    return () => {
+      alive = false
+    }
+  }, [refreshKey])
+
+  if (!summary || !summary.count) return null
+  const { count, averages, distribution } = summary
+  const overall = Number(averages?.overall) || 0
+  return (
+    <section className="border-b border-earth-300 bg-earth-50 px-5 py-8 sm:px-8 lg:px-12">
+      <div className="mx-auto max-w-[900px]">
+        <p className="eyebrow">What our customers say</p>
+        <div className="mt-4 grid gap-6 sm:grid-cols-[auto_1fr] sm:gap-10">
+          <div className="text-center sm:text-left">
+            <p className="display-title text-6xl leading-none">
+              {overall.toFixed(1)}
+              <span className="text-xl text-earth-600"> / 5</span>
+            </p>
+            <div className="mt-2 flex justify-center gap-0.5 sm:justify-start" role="img" aria-label={`${overall.toFixed(1)} out of 5 stars`}>
+              {[1, 2, 3, 4, 5].map((n) => (
+                <StarIcon key={n} filled={n <= Math.round(overall)} size={20} />
+              ))}
+            </div>
+            <p className="mt-1 text-xs text-earth-600">
+              Based on {count} review{count === 1 ? "" : "s"}
+            </p>
+          </div>
+
+          <div className="space-y-1.5" aria-label="Overall rating spread">
+            {[5, 4, 3, 2, 1].map((n) => {
+              const c = Number(distribution?.[n]) || 0
+              const pct = count ? Math.round((c / count) * 100) : 0
+              return (
+                <div key={n} className="flex items-center gap-2 text-xs text-earth-700">
+                  <span className="w-12 shrink-0 font-semibold">{n} star{n > 1 ? "s" : ""}</span>
+                  <span className="h-2.5 min-w-0 flex-1 overflow-hidden rounded-full bg-earth-200">
+                    <span className="block h-full rounded-full bg-[#E0A528]" style={{ width: `${pct}%` }} />
+                  </span>
+                  <span className="w-9 shrink-0 text-right tabular-nums">{pct}%</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        <div className="mt-6 grid gap-x-6 gap-y-3 border-t border-earth-300 pt-5 sm:grid-cols-2 lg:grid-cols-4">
+          {RATING_FIELDS.filter((r) => r.id !== "overall").map((r) => (
+            <div key={r.id}>
+              <p className="text-[10px] font-bold uppercase tracking-[.1em] text-earth-600">{r.label}</p>
+              <p className="mt-1 flex items-center gap-1.5 text-sm font-semibold">
+                <StarIcon filled size={14} /> {(Number(averages?.[r.id]) || 0).toFixed(1)}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
 export default function FeedbackPage({ navigate }) {
   const notify = useNotify()
   const [local, setLocal] = useState(getLocalVoucher)
@@ -248,6 +316,8 @@ export default function FeedbackPage({ navigate }) {
           </p>
         </div>
       </section>
+
+      <ReviewSummary refreshKey={justEarned} />
 
       <section className="px-5 py-10 sm:px-8 lg:px-12 lg:py-14">
         <div className="mx-auto max-w-[900px]">
