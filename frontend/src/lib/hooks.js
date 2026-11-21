@@ -14,6 +14,7 @@ export function useMenuData() {
     home: null,
     contacts: null,
     menu_addons: null,
+    menu_order: null,
   })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")

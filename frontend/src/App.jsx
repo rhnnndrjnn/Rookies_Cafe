@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react"
 import { NotifyProvider, useNotify } from "./lib/notify.jsx"
 import { useCart } from "./lib/cart.js"
 import { useMenuData, useMyOrders } from "./lib/hooks.js"
-import { resolveCategories, resolveContacts } from "./lib/constants.js"
+import { orderProducts, resolveCategories, resolveContacts } from "./lib/constants.js"
 import Splash from "./components/Splash.jsx"
 import ProductModal from "./components/ProductModal.jsx"
 import { CorporateFooter, Navbar, StatusBanner, navItems } from "./components/Shell.jsx"
@@ -59,7 +59,7 @@ function CustomerSite({ route, navigate }) {
     "/about": <AboutPage navigate={navigate} content={menu.settings.about} />,
     "/menu": (
       <MenuPage
-        products={menu.products}
+        products={orderProducts(menu.products, menu.settings.menu_order)}
         categories={categories}
         loading={menu.loading}
         error={menu.error}

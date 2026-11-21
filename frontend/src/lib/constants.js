@@ -77,6 +77,25 @@ export const DEFAULT_CATEGORY_LIST = [
 ];
 export const CATEGORIES = DEFAULT_CATEGORY_LIST.map((c) => c.name);
 
+// Default menu order: flagged products come first, in this order, then everything else.
+export const BADGE_ORDER = ["New", "Best Seller", "Must Try", "For Sharing"];
+
+/** Products in the order customers see them. Until the owner rearranges the menu by hand
+ *  (settings.menu_order.custom), flagged products go first: New, Best Seller, Must Try,
+ *  For Sharing, then the rest. Within a group the saved sort order is kept. Once the owner
+ *  drags products, their order is used exactly as saved. */
+export const orderProducts = (products = [], menuOrder) => {
+  if (menuOrder?.custom) return products;
+  const rank = (p) => {
+    const i = BADGE_ORDER.indexOf(p.badge);
+    return i < 0 ? BADGE_ORDER.length : i;
+  };
+  return products
+    .map((p, i) => [p, i])
+    .sort((a, b) => rank(a[0]) - rank(b[0]) || a[1] - b[1])
+    .map(([p]) => p);
+};
+
 /** Category list from the owner's setting (falls back to the defaults). Any category still used
  *  by a product but missing from the list is appended so no item ever disappears from the menu. */
 export const resolveCategories = (settings, products = []) => {

@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { FieldMessage, Icon, Input, Modal } from "../ui.jsx"
-import { DEFAULT_CATEGORY_LIST, DEFAULT_MENU_ADDONS, FRIES_SHARING_DEFAULT, SIZE_UPCHARGE, isDrinkCategory, isFries, peso, resolveCategories } from "../../lib/constants.js"
+import { DEFAULT_CATEGORY_LIST, DEFAULT_MENU_ADDONS, FRIES_SHARING_DEFAULT, SIZE_UPCHARGE, isDrinkCategory, isFries, orderProducts, peso, resolveCategories } from "../../lib/constants.js"
 import { deleteProduct, reorderProducts, saveProduct, setSetting, uploadImage } from "../../lib/db.js"
 import { useNotify } from "../../lib/notify.jsx"
 import { rules, useLiveForm } from "../../lib/validate.js"
@@ -369,28 +369,61 @@ export default function ProductsManager({ products, settings }) {
   const [managing, setManaging] = useState(false)
   const [draggedId, setDraggedId] = useState(null)
   const [savingOrder, setSavingOrder] = useState(false)
-  const [orderedProducts, setOrderedProducts] = useState(products)
+  const arranged = useMemo(() => orderProducts(products, settings?.menu_order), [products, settings?.menu_order])
+  const [orderedProducts, setOrderedProducts] = useState(arranged)
   const categories = resolveCategories(settings, products)
-  useEffect(() => setOrderedProducts(products), [products])
-  const list = orderedProducts.filter((p) => filter === "All" || p.category === filter)
+  useEffect(() => setOrderedProducts(arranged), [arranged])
+  const custom = !!settings?.menu_order?.custom
+  const inView = (p) => filter === "All" || p.category === filter
+  const list = orderedProducts.filter(inView)
 
-  const dropProduct = async (targetId) => {
-    if (!draggedId || draggedId === targetId || filter !== "All") return
-    const reordered = [...orderedProducts]
-    const from = reordered.findIndex((p) => p.id === draggedId)
-    const to = reordered.findIndex((p) => p.id === targetId)
-    if (from < 0 || to < 0) return
-    const [moved] = reordered.splice(from, 1)
-    reordered.splice(to, 0, moved)
+  // Rearrange only the products shown in the current tab (All or one category); products in
+  // other categories keep their places. The result becomes the order customers see.
+  const commitOrder = async (visibleNext) => {
+    let k = 0
+    const reordered = orderedProducts.map((p) => (inView(p) ? visibleNext[k++] : p))
     setOrderedProducts(reordered)
-    setDraggedId(null)
     setSavingOrder(true)
     try {
       await reorderProducts(reordered.map((p) => p.id))
+      await setSetting("menu_order", { custom: true })
       notify("Product order saved", "Customers will see this order too.", { tone: "success" })
     } catch (e) {
-      setOrderedProducts(products)
+      setOrderedProducts(arranged)
       notify("Could not save product order", e.message, { tone: "error" })
+    } finally {
+      setSavingOrder(false)
+    }
+  }
+
+  const dropProduct = async (targetId) => {
+    const id = draggedId
+    setDraggedId(null)
+    if (!id || id === targetId) return
+    const next = [...list]
+    const from = next.findIndex((p) => p.id === id)
+    const to = next.findIndex((p) => p.id === targetId)
+    if (from < 0 || to < 0) return
+    const [moved] = next.splice(from, 1)
+    next.splice(to, 0, moved)
+    await commitOrder(next)
+  }
+
+  const moveProduct = async (index, d) => {
+    const j = index + d
+    if (j < 0 || j >= list.length) return
+    const next = [...list]
+    ;[next[index], next[j]] = [next[j], next[index]]
+    await commitOrder(next)
+  }
+
+  const resetOrder = async () => {
+    setSavingOrder(true)
+    try {
+      await setSetting("menu_order", { custom: false })
+      notify("Automatic order restored", "New, Best Seller, Must Try and For Sharing come first.", { tone: "success" })
+    } catch (e) {
+      notify("Could not reset the order", e.message, { tone: "error" })
     } finally {
       setSavingOrder(false)
     }
@@ -424,22 +457,27 @@ export default function ProductsManager({ products, settings }) {
           <button key={c} onClick={() => setFilter(c)} className={`chip whitespace-nowrap ${filter === c ? "chip-active" : ""}`}>{c}</button>
         ))}
       </div>
-      <p className="mb-3 text-xs text-earth-600">
-        {savingOrder ? "Saving menu order…" : filter === "All" ? "Drag products using the handle to change their order. New products appear at the top automatically." : "Switch to All to rearrange the full menu."}
-      </p>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-earth-600">
+          {savingOrder
+            ? "Saving menu order…"
+            : `Drag the handle or use the arrows to rearrange ${filter === "All" ? "the menu" : `the ${filter} tab`}. ${custom ? "You're using your own order." : "Right now flagged products come first: New, Best Seller, Must Try, For Sharing."}`}
+        </p>
+        {custom && <button type="button" className="btn-sm" disabled={savingOrder} onClick={resetOrder}>Reset to automatic order</button>}
+      </div>
       <ul className="overflow-hidden rounded-2xl border border-earth-300 bg-earth-50 shadow-sm">
         {list.length === 0 && <li className="px-5 py-14 text-center text-sm text-earth-600">No products in this category.</li>}
-        {list.map((p) => (
+        {list.map((p, idx) => (
           <li
             key={p.id}
-            draggable={filter === "All" && !savingOrder}
+            draggable={!savingOrder}
             onDragStart={() => setDraggedId(p.id)}
-            onDragOver={(e) => { if (filter === "All") e.preventDefault() }}
+            onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => { e.preventDefault(); dropProduct(p.id) }}
             onDragEnd={() => setDraggedId(null)}
             className={`flex items-center gap-2 border-b border-earth-200 p-2.5 last:border-b-0 sm:gap-3 sm:p-3 ${draggedId === p.id ? "opacity-40" : ""}`}
           >
-            <button type="button" className={`grid size-8 shrink-0 place-items-center rounded-lg text-earth-600 ${filter === "All" ? "cursor-grab active:cursor-grabbing hover:bg-earth-200" : "opacity-30"}`} title="Drag to reorder" aria-label={`Drag ${p.name} to reorder`} disabled={filter !== "All" || savingOrder}>
+            <button type="button" className="grid size-8 shrink-0 cursor-grab place-items-center rounded-lg text-earth-600 hover:bg-earth-200 active:cursor-grabbing" title="Drag to reorder" aria-label={`Drag ${p.name} to reorder`} disabled={savingOrder}>
               <span className="text-xl leading-none">⠿</span>
             </button>
             <img src={p.image} alt="" className="size-14 shrink-0 rounded-lg bg-earth-200 object-cover" />
@@ -452,6 +490,10 @@ export default function ProductsManager({ products, settings }) {
                 {p.category} · {peso(p.price)}{p.price_22 ? ` / ${peso(p.price_22)}` : ""}
                 {!p.available && <span className="ml-2 font-bold text-[#8F3B31]">SOLD OUT</span>}
               </p>
+            </div>
+            <div className="flex shrink-0 flex-col">
+              <button type="button" className="px-1.5 text-xs leading-4 text-earth-600 hover:text-earth-900 disabled:opacity-25" disabled={savingOrder || idx === 0} onClick={() => moveProduct(idx, -1)} aria-label={`Move ${p.name} up`}>▲</button>
+              <button type="button" className="px-1.5 text-xs leading-4 text-earth-600 hover:text-earth-900 disabled:opacity-25" disabled={savingOrder || idx === list.length - 1} onClick={() => moveProduct(idx, 1)} aria-label={`Move ${p.name} down`}>▼</button>
             </div>
             <button className="btn-sm" onClick={() => setEditing(p)} aria-label={`Edit ${p.name}`}>
               <Icon name="edit" size={14} /> <span className="hidden sm:inline">Edit</span>

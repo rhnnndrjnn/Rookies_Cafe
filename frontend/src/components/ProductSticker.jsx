@@ -11,7 +11,7 @@ export default function ProductSticker({ label, className = "" }) {
   return (
     <span
       aria-label={label}
-      className={`pointer-events-none absolute right-1.5 top-1.5 z-10 inline-flex max-w-[70%] items-center rounded-full px-1.5 py-[3px] text-[6px] font-bold uppercase leading-none tracking-[.08em] ring-1 ring-inset backdrop-blur-[2px] sm:right-2 sm:top-2 sm:px-2 sm:py-1 sm:text-[7px] ${STICKER_STYLES[label] || "bg-[#F2E9DF]/90 text-[#725B49] ring-[#CDBBA8]/70"} ${className}`}
+      className={`pointer-events-none absolute right-1.5 top-1.5 z-10 inline-flex max-w-[calc(100%-12px)] items-center justify-center rounded-full px-2.5 py-1 text-center text-[9px] font-bold uppercase leading-[1.15] tracking-[.06em] shadow-sm ring-1 ring-inset backdrop-blur-[2px] sm:right-2.5 sm:top-2.5 sm:px-3 sm:py-1.5 sm:text-[11px] ${STICKER_STYLES[label] || "bg-[#F2E9DF]/90 text-[#725B49] ring-[#CDBBA8]/70"} ${className}`}
     >
       {label}
     </span>

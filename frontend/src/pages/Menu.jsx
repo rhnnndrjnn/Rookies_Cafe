@@ -103,7 +103,7 @@ export default function MenuPage({ products, categories, loading, error, query, 
                     item.available ? "" : "opacity-60"
                   }`}
                 >
-                  <div className="relative size-[74px] shrink-0 overflow-hidden rounded-xl bg-earth-200 sm:size-24">
+                  <div className="relative size-[92px] shrink-0 overflow-hidden rounded-xl bg-earth-200 sm:size-28">
                     <ProductSticker label={item.badge} />
                     {item.image && (
                       <img
